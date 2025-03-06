@@ -216,7 +216,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     const API_ENDPOINT = "https://discord.com/api/oauth2/authorize";
     const USER_URL = "https://discord.com/api/users/@me";
 
-    const discordButton = document.getElementById("discord-login");
+     const discordButton = document.getElementById("discord-login");
     const profileContainer = document.getElementById("profile-container");
 
     function getStoredUser() {
@@ -241,6 +241,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             `;
             profileContainer.style.display = "block";
             discordButton.style.display = "none";
+
             document.getElementById("logout").addEventListener("click", clearUser);
         } else {
             profileContainer.style.display = "none";
@@ -284,15 +285,10 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     updateUI(getStoredUser());
 
-    document.querySelector("form").addEventListener("submit", function (event) {
+    document.querySelector("form").addEventListener("submit", function () {
         const user = getStoredUser();
         if (user) {
             document.getElementById("username").value = user.id;
         }
     });
-});
-
-
-    // Load initial status
-    fetchStatus();
 });
