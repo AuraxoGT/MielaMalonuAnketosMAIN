@@ -205,11 +205,11 @@ button:hover {
 
 #profile-container {
     display: flex;
-    align-items: center;
+    align-items: Left;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     margin-top: 10px;
-    background-color: red
+    
 }
 
 #profile-container img {
