@@ -214,21 +214,24 @@ document.addEventListener("DOMContentLoaded", async function () {
         console.log("✅ Form submitted with data:", { userId, age, reason, pl, kl, pc, isp });
           const appId = `${userId}-${Date.now()}`; 
         const payload = {
-            embeds: [
-                {
-                    title: "📢 Nauja Aplikacija!",
-                    color: 0x000000,
-                    fields: [
-                        { name: "👤 Asmuo", value: `<@${userId}>`, inline: true },
-                        { name: "🎂 Metai", value: `**${age}**`, inline: true },
-                        { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
-                        { name: "🔫 Pašaudymo lygis", value: `**${pl} / 10**`, inline: true },
-                        { name: "📞 Komunikacijos lygis", value: `**${kl} / 10**`, inline: true },
-                        { name: "🖥️ PC Check", value: `**${pc}**`, inline: true },
-                        { name: "🚫 Ispėjimo išpirkimas", value: `**${isp}**`, inline: true },
-                    ],
-                    timestamp: new Date().toISOString(),
- components: [{
+           embeds: [
+        {
+            title: "📢 Nauja Aplikacija!",
+            color: 0x000000,
+            fields: [
+                { name: "👤 Asmuo", value: `<@${userId}>`, inline: true },
+                { name: "🎂 Metai", value: `**${age}**`, inline: true },
+                { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
+                { name: "🔫 Pašaudymo lygis", value: `**${pl} / 10**`, inline: true },
+                { name: "📞 Komunikacijos lygis", value: `**${kl} / 10**`, inline: true },
+                { name: "🖥️ PC Check", value: `**${pc}**`, inline: true },
+                { name: "🚫 Ispėjimo išpirkimas", value: `**${isp}**`, inline: true },
+            ],
+            timestamp: new Date().toISOString()
+        }
+    ],
+    components: [
+        {
             type: 1,
             components: [
                 {
@@ -244,9 +247,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                     custom_id: `reject_${appId}`
                 }
             ]
-                }
-            ]
-        };
+        }
+    ]
+};
+
 
         fetch("https://canary.discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Achvrej1Kr-W-rXqZVibcftwWFn5sMZyhIMSb9E4r975HbQI3tF", {
             method: "POST",
