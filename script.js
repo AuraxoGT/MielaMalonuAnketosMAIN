@@ -174,6 +174,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     // DISCORD INTEGRATION
     // ======================
 
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
+    }
+
     async function fetchDiscordUser(token) {
         try {
             const [userData, presenceData] = await Promise.all([
