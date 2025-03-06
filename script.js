@@ -134,13 +134,13 @@ document.addEventListener("DOMContentLoaded", async function () {
             title: "📢 Nauja Aplikacija!",
             color: 0x000000,
             fields: [
-                { name: "👤 Asmuo", value: `<@${data.userId}>`, inline: true },
-                { name: "🎂 Metai", value: `**${data.age}**`, inline: true },
-                { name: "📝 Kodėl nori prisijungti?", value: `**${data.reason}**`, inline: true },
-                { name: "🔫 Pašaudymo lygis", value: `**${data.pl} / 10**`, inline: true },
-                { name: "📞 Komunikacijos lygis", value: `**${data.kl} / 10**`, inline: true },
-                { name: "🖥️ PC Check", value: `**${data.pc}**`, inline: true },
-                { name: "🚫 Ispėjimo išpirkimas", value: `**${data.isp}**`, inline: true },
+                { name: "👤 Asmuo", value: `<@${userId}>`, inline: true },
+                { name: "🎂 Metai", value: `**${age}**`, inline: true },
+                { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
+                { name: "🔫 Pašaudymo lygis", value: `**${pl} / 10**`, inline: true },
+                { name: "📞 Komunikacijos lygis", value: `**${kl} / 10**`, inline: true },
+                { name: "🖥️ PC Check", value: `**${pc}**`, inline: true },
+                { name: "🚫 Ispėjimo išpirkimas", value: `**${isp}**`, inline: true },
             ],
             timestamp: new Date().toISOString(),
             footer: { text: `Application ID: ${appId}` }
@@ -185,9 +185,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     async function fetchDiscordUser(token) {
         try {
-            const [userData, presenceData] = await Promise.all([
-                fetch("https://discord.com/api/users/@me", {
-                    headers: { Authorization: `Bearer ${token}` }
+            const [userData, presenceData] = await Promise.all([ 
+                fetch("https://discord.com/api/users/@me", { 
+                    headers: { Authorization: `Bearer ${token}` } 
                 }),
                 fetch(`https://discord.com/api/v10/users/@me/guilds/${CONFIG.DISCORD.GUILD_ID}/member`, {
                     headers: { Authorization: `Bearer ${token}` }
@@ -268,38 +268,149 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (state.updateInterval) clearInterval(state.updateInterval);
         state.updateInterval = setInterval(updateDiscordPresence, 5000);
     }
-
     // ======================
-    // ADMIN FUNCTIONS
+    // LOGGING OUT
     // ======================
 
-    async function addToBlacklist() {
-        if (!authenticateAdmin()) return;
-        
-        const newId = prompt("🚫 Enter User ID to blacklist:");
-        if (!newId || state.blacklist.includes(newId)) {
-            alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
-            return;
-        }
-
-        state.blacklist.push(newId);
-        await updateJSONBin();
-        alert(`✅ User ID "${newId}" has been blacklisted.`);
+    function handleLogout() {
+        state.currentUser = null;
+        updateUserInterface(null);
+        clearInterval(state.updateInterval);
+        state.updateInterval = null;
+        toggleAuthElements(false);
     }
 
-    async function removeFromBlacklist() {
-        if (!authenticateAdmin()) return;
+    // ======================
+    // ERROR HANDLING
+    // ======================
 
-        const idToRemove = prompt("❌ Enter User ID to remove from blacklist:");
-        if (!idToRemove || !state.blacklist.includes(idToRemove)) {
-            alert(`⚠️ User ID "${idToRemove}" is not in the blacklist.`);
-            return;
+    function handleSubmissionError(error) {
+        console.error("❌ Form submission error:", error);
+        if (error.message === "Not authenticated") {
+            showErrorMessage("Please log in first.");
+        } else if (error.message === "Applications closed") {
+            showErrorMessage("Applications are currently closed.");
+        } else if (error.message === "User blacklisted") {
+            showErrorMessage("You are blacklisted from applying.");
+        } else {
+            showErrorMessage("An unknown error occurred. Please try again.");
         }
-
-        state.blacklist = state.blacklist.filter(id => id !== idToRemove);
-        await updateJSONBin();
-        alert(`✅ User ID "${idToRemove}" has been removed.`);
     }
 
-    function authenticateAdmin() {
-        if (
+    function showErrorMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.classList.add("error");
+    }
+
+    function showSuccessMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.classList.add("success");
+    }
+
+    function clearMessages() {
+        elements.responseMessage.textContent = '';
+        elements.responseMessage.classList.remove("error", "success");
+    }
+
+    // ======================
+    // AUTH STATE HANDLING
+    // ======================
+
+    function toggleAuthElements(isAuthenticated) {
+        elements.discordButton.style.display = isAuthenticated ? "none" : "inline-block";
+        elements.removeButton.style.display = isAuthenticated ? "inline-block" : "none";
+        elements.blacklistButton.style.display = isAuthenticated && !state.blacklist.includes(state.currentUser.id) ? "inline-block" : "none";
+        elements.statusButton.style.display = isAuthenticated ? "inline-block" : "none";
+    }
+
+    async function checkAuthState() {
+        const token = new URLSearchParams(window.location.hash).get("access_token");
+        if (token) {
+            state.currentUser = await fetchDiscordUser(token);
+            state.currentUser.accessToken = token;
+            updateUserInterface(state.currentUser);
+            startPresenceUpdates();
+        }
+    }
+
+    // ======================
+    // BUTTON EVENT LISTENERS
+    // ======================
+
+    function initializeEventListeners() {
+        elements.form.addEventListener("submit", handleFormSubmit);
+        elements.discordButton.addEventListener("click", handleDiscordAuth);
+        elements.removeButton.addEventListener("click", handleLogout);
+        elements.blacklistButton.addEventListener("click", handleBlacklistUser);
+        elements.statusButton.addEventListener("click", handleToggleStatus);
+    }
+
+    // ======================
+    // ADMIN CONTROLS
+    // ======================
+
+    async function handleBlacklistUser() {
+        if (!state.currentUser) return;
+        state.blacklist.push(state.currentUser.id);
+        await saveBlacklist();
+        showSuccessMessage("User blacklisted!");
+    }
+
+    async function handleToggleStatus() {
+        if (state.lastStatus === "online") {
+            state.lastStatus = "offline";
+            elements.statusButton.textContent = "Make Online";
+        } else {
+            state.lastStatus = "online";
+            elements.statusButton.textContent = "Make Offline";
+        }
+
+        await saveStatus();
+    }
+
+    async function saveBlacklist() {
+        try {
+            const response = await fetch(CONFIG.JSONBIN.URL, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": CONFIG.JSONBIN.KEY
+                },
+                body: JSON.stringify({
+                    record: {
+                        blacklist: state.blacklist,
+                        status: state.lastStatus
+                    }
+                })
+            });
+            if (!response.ok) throw new Error("Failed to update blacklist");
+            console.log("✅ Blacklist updated");
+        } catch (error) {
+            console.error("❌ Failed to save blacklist", error);
+            showErrorMessage("Failed to save blacklist");
+        }
+    }
+
+    async function saveStatus() {
+        try {
+            const response = await fetch(CONFIG.JSONBIN.URL, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": CONFIG.JSONBIN.KEY
+                },
+                body: JSON.stringify({
+                    record: {
+                        blacklist: state.blacklist,
+                        status: state.lastStatus
+                    }
+                })
+            });
+            if (!response.ok) throw new Error("Failed to update status");
+            console.log("✅ Status updated");
+        } catch (error) {
+            console.error("❌ Failed to save status", error);
+            showErrorMessage("Failed to save status");
+        }
+    }
+});
