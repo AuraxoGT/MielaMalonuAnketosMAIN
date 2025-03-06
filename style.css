@@ -205,81 +205,88 @@ button:hover {
 
 #profile-container {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
-    margin: 15px 0;
-    padding: 10px 15px;
-   background: linear-gradient(135deg, rgba(88, 101, 242, 0.1), rgba(54, 57, 63, 0.9));
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 8px;
+    margin: 15px auto; /* Centers horizontally */
+    padding: 12px;
+    width: 100px;
+    min-height: 140px;
+    background: rgba(54, 57, 63, 0.9);
+    border-radius: 12px;
+    border: 1px solid #36393f;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(5px);
-    transition: all 0.3s ease;
-    max-width: 100px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-   width:100px;
-}
-
-#profile-container:hover {
-    background: rgba(64, 68, 76, 0.95);
-    transform: translateY(-1px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
 }
 
 #profile-container img {
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
-    width: 48px;
-    height: 48px;
     border: 2px solid #5865f2;
+    margin-top: 8px;
     transition: transform 0.3s ease;
 }
 
-#profile-container img:hover {
-    transform: scale(1.05);
-}
-
 #profile-container p {
-    color: #ffffff;
-    font-family: 'Ginto Nord', 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-size: 16px;
+    color: white;
+    font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 0.8rem;
     font-weight: 500;
-    margin: 0;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    max-width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #profile-container button {
-    background-color: #ed4245;
+    background: #ed4245;
     color: white;
     border: none;
-    padding: 6px 12px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 0.7rem;
     cursor: pointer;
-    border-radius: 4px;
-    font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-weight: 500;
     transition: all 0.2s ease;
+    width: 80%;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    gap: 4px;
 }
 
 #profile-container button:hover {
-    background-color: #ff4b4e;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    background: #ff4b4e;
+    transform: scale(1.05);
 }
 
 #profile-container button::before {
     content: "🚪";
-    filter: brightness(1.2);
+    font-size: 0.8rem;
 }
 
-/* Discord-like status indicator */
+/* Status indicator */
 #profile-container::after {
     content: "";
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     background: #3ba55c;
     border-radius: 50%;
-    position: relative;
-    left: -35px;
-    top: 20px;
+    position: absolute;
+    top: 12px;
+    right: 12px;
     border: 2px solid #18191c;
+    box-shadow: 0 0 8px rgba(59, 165, 92, 0.4);
+}
+
+/* Hover effects */
+#profile-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+#profile-container:hover img {
+    transform: rotate(-5deg) scale(1.05);
 }
