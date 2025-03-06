@@ -214,6 +214,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         console.log("✅ Form submitted with data:", { userId, age, reason, pl, kl, pc, isp });
           const appId = `${userId}-${Date.now()}`; 
         const payload = {
+          username: "📝 Application System", // Required for webhook components
            embeds: [
         {
             title: "📢 Nauja Aplikacija!",
