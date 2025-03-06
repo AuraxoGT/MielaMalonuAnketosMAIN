@@ -180,7 +180,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // --- Form Submission ---
     form.addEventListener("submit", function (event) {
-        event.preventDefault();
+    event.preventDefault();
 
         const user = getStoredUser();
         if (!user) {
@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         const isp = document.getElementById("isp").value.trim();
 
         console.log("✅ Form submitted with data:", { userId, age, reason, pl, kl, pc, isp });
-
+          const appId = `${userId}-${Date.now()}`; 
         const payload = {
             embeds: [
                 {
@@ -227,7 +227,23 @@ document.addEventListener("DOMContentLoaded", async function () {
                         { name: "🖥️ PC Check", value: `**${pc}**`, inline: true },
                         { name: "🚫 Ispėjimo išpirkimas", value: `**${isp}**`, inline: true },
                     ],
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+ components: [{
+            type: 1,
+            components: [
+                {
+                    type: 2,
+                    style: 3,
+                    label: "Accept",
+                    custom_id: `accept_${appId}`
+                },
+                {
+                    type: 2,
+                    style: 4,
+                    label: "Reject",
+                    custom_id: `reject_${appId}`
+                }
+            ]
                 }
             ]
         };
