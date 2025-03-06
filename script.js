@@ -210,9 +210,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     removeButton.addEventListener("click", removeFromBlacklist);
 
 
-document.addEventListener("DOMContentLoaded", function () {
+
     const CLIENT_ID = "1263389179249692693";
-    const REDIRECT_URI = "https://auraxogt.github.io/mmwebtest/";
+    const REDIRECT_URI = "https://auraxogt.github.io/mmwebtest/"; // Must match exactly as set in Discord Dev Portal
     const API_ENDPOINT = "https://discord.com/api/oauth2/authorize";
     const USER_URL = "https://discord.com/api/users/@me";
 
@@ -259,6 +259,10 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(res => res.json())
         .then(user => {
+            if (!user.id) {
+                console.error("Invalid user data:", user);
+                return;
+            }
             user.avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
             storeUser(user);
             updateUI(user);
@@ -266,15 +270,21 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch(err => console.error("Error fetching user:", err));
     }
 
-    if (window.location.hash.includes("access_token")) {
-        const params = new URLSearchParams(window.location.hash.substring(1));
-        fetchUser(params.get("access_token"));
-        window.history.replaceState({}, document.title, "/");
+    function extractTokenFromURL() {
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        return params.get("access_token");
+    }
+
+    const token = extractTokenFromURL();
+    if (token) {
+        fetchUser(token);
+        window.history.replaceState({}, document.title, REDIRECT_URI); // Clean URL after auth
     }
 
     updateUI(getStoredUser());
 
-    document.querySelector("form").addEventListener("submit", function () {
+    document.querySelector("form").addEventListener("submit", function (event) {
         const user = getStoredUser();
         if (user) {
             document.getElementById("username").value = user.id;
