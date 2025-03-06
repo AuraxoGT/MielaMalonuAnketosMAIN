@@ -140,49 +140,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // --- Discord Integration ---
-    const CLIENT_ID = "1263389179249692693";
-    const REDIRECT_URI = "https://auraxogt.github.io/mmwebtest/";
-    const API_ENDPOINT = "https://discord.com/api/oauth2/authorize";
-    const USER_URL = "https://discord.com/api/users/@me";
-
-    const discordButton = document.getElementById("discord-login");
-    const profileContainer = document.getElementById("profile-container");
-
-    function getStoredUser() {
-        return JSON.parse(localStorage.getItem("discord_user"));
-    }
-
-    function storeUser(user) {
-        localStorage.setItem("discord_user", JSON.stringify(user));
-    }
-
-    function clearUser() {
-        localStorage.removeItem("discord_user");
-        location.reload();
-    }
-
-    function updateUI(user) {
-        if (user) {
-            profileContainer.innerHTML = `
-                <img src="${user.avatar}" alt="Avatar" width="50">
-                <p>${user.username}</p>
-                <button id="logout">Log Out</button>
-            `;
-            profileContainer.style.display = "block";
-            discordButton.style.display = "none";
-            document.getElementById("logout").addEventListener("click", clearUser);
-        } else {
-            profileContainer.style.display = "none";
-            discordButton.style.display = "block";
-        }
-    }
-
     // --- Form Submission ---
     form.addEventListener("submit", function (event) {
-    event.preventDefault();
+        event.preventDefault();
 
-        const user = getStoredUser();
+        const user = JSON.parse(localStorage.getItem("discord_user"));
         if (!user) {
             responseMessage.innerText = "❌ Turite prisijungti su Discord prieš pateikiant!";
             responseMessage.style.color = "red";
@@ -204,122 +166,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
 
-        const age = document.getElementById("age").value.trim();
-        const reason = document.getElementById("whyJoin").value.trim();
-        const pl = document.getElementById("pl").value.trim();
-        const kl = document.getElementById("kl").value.trim();
-        const pc = document.getElementById("pc").value.trim();
-        const isp = document.getElementById("isp").value.trim();
-
-        console.log("✅ Form submitted with data:", { userId, age, reason, pl, kl, pc, isp });
-const appId = `${userId.slice(0, 16)}-${Date.now()}`; // Truncate user ID for safety
-
-const payload = {
-    username: "📝 Application System",
-    avatar_url: "https://your-valid-image-url.com/avatar.png", // REPLACE WITH REAL URL
-    embeds: [{
-        title: "📢 Nauja Aplikacija!",
-        color: 2827569, // Use decimal equivalent of 0x2b2d31
-        fields: [
-            { name: "👤 Asmuo", value: sanitize(userId), inline: true },
-            { name: "🎂 Metai", value: sanitize(age), inline: true },
-            { name: "📝 Priežastis", value: sanitize(reason), inline: true },
-            { name: "🔫 Pašaudymas", value: `${sanitize(pl)}/10`, inline: true },
-            { name: "📞 Komunikacija", value: `${sanitize(kl)}/10`, inline: true },
-            { name: "🖥️ PC Check", value: sanitize(pc), inline: true },
-            { name: "🚫 Ispėjimai", value: sanitize(isp), inline: true }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: { text: `ID: ${appId}` }
-    }],
-    components: [{
-        type: 1,
-        components: [
-            {
-                type: 2,
-                style: 3,
-                label: "Patvirtinti",
-                custom_id: `accept_${appId.replace(/[^a-z0-9_-]/gi, "")}`, // Sanitized ID
-                emoji: { name: "✅" }
-            },
-            {
-                type: 2,
-                style: 4,
-                label: "Atmesti",
-                custom_id: `reject_${appId.replace(/[^a-z0-9_-]/gi, "")}`, // Sanitized ID
-                emoji: { name: "❌" }
-            }
-        ]
-    }]
-};
-
-// Add validation helper
-function sanitize(input) {
-    return String(input)
-        .substring(0, 1024)
-        .replace(/[@#`*_~]/g, "");
-}
-
-fetch("https://discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Achvrej1Kr-W-rXqZVibcftwWFn5sMZyhIMSb9E4r975HbQI3tF", { // DOUBLE CHECK URL IS CORRECT
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-})
-.then(async response => {
-    const data = await response.json();
-    if (!response.ok) {
-        console.error("Discord API Error:", data);
-        throw new Error(data.message || "Bad Request");
-    }
-    responseMessage.innerText = "✅ Aplikacija pateikta!";
-    responseMessage.style.color = "green";
-    form.reset();
-})
-.catch(error => {
-    console.error("Submission Error:", error);
-    responseMessage.innerText = `❌ Klaida: ${error.message}`;
-    responseMessage.style.color = "red";
-});
-
-    // --- Discord OAuth Handlers ---
-    discordButton.addEventListener("click", function () {
-        const authUrl = `${API_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
-        window.location.href = authUrl;
+        console.log("✅ Form submitted with user ID:", userId);
     });
 
-    function fetchUser(token) {
-        fetch(USER_URL, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-        .then(res => res.json())
-        .then(user => {
-            if (!user.id) {
-                console.error("Invalid user data:", user);
-                return;
-            }
-            user.avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
-            storeUser(user);
-            updateUI(user);
-        })
-        .catch(err => console.error("Error fetching user:", err));
-    }
-
-    function extractTokenFromURL() {
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        return params.get("access_token");
-    }
-
-    // Initialization
-    const token = extractTokenFromURL();
-    if (token) {
-        fetchUser(token);
-        window.history.replaceState({}, document.title, REDIRECT_URI);
-    }
-
-    updateUI(getStoredUser());
+    // --- Event Listeners ---
     statusButton.addEventListener("click", toggleStatus);
     blacklistButton.addEventListener("click", addToBlacklist);
     removeButton.addEventListener("click", removeFromBlacklist);
+
+    // --- Fetch Initial Data ---
     fetchStatus();
-})
+});
