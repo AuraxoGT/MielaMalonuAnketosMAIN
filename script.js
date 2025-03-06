@@ -260,7 +260,7 @@ function sanitize(input) {
         .replace(/[@#`*_~]/g, "");
 }
 
-fetch("YOUR_WEBHOOK_URL", { // DOUBLE CHECK URL IS CORRECT
+fetch("https://discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Achvrej1Kr-W-rXqZVibcftwWFn5sMZyhIMSb9E4r975HbQI3tF", { // DOUBLE CHECK URL IS CORRECT
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
