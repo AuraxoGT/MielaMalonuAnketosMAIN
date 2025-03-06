@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             REDIRECT_URI: "https://auraxogt.github.io/mmwebtest/",
             SCOPES: ["identify", "guilds.members.read"],
             WEBHOOK_URL: "https://discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Achvrej1Kr-W-rXqZVibcftwWFn5sMZyhIMSb9E4r975HbQI3tF",
-            GUILD_ID: "1325850250027597845"
+            GUILD_ID: "YOUR_SERVER_ID_HERE"
         }
     };
 
@@ -189,7 +189,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 fetch("https://discord.com/api/users/@me", {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
-                fetch(`https://discord.com/api/v10/users/@me/settings`, {
+                fetch(`https://discord.com/api/v10/users/@me/guilds/${CONFIG.DISCORD.GUILD_ID}/member`, {
                     headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
