@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     title: "📢 Nauja Aplikacija!",
                     color: 00000000,
                     fields: [
-                        { name: "👤 Asmuo", value: `<@${userId}>`, inline: true },
+                        { name: "👤 Asmuo", value: `<@${username}>`, inline: true },
                         { name: "🎂 Metai", value: `**${age}**`, inline: true },
                         { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
                         { name: "🔫 Pašaudymo lygis", value: `**${pl} / 10**`, inline: true },
