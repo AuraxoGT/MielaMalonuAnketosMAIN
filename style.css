@@ -14,28 +14,80 @@ body {
     min-height: 100vh;
 }
 
-/* Discord Login/Profile */
-.discord-widget {
+/* Main Layout */
+.main-container {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    background: rgba(255, 255, 255, 0.1);
+    gap: 20px;
+    justify-content: center;
+    max-width: 1200px;
+    width: 100%;
+}
+
+/* Glassmorphism Containers */
+.container, .rules-container {
+    background: rgba(40, 40, 40, 0.5);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    padding: 25px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Application Form Container */
+.container {
+    width: 600px;
+    text-align: center;
+}
+
+/* Rules Container */
+.rules-container {
+    width: 400px;
+    color: white;
+}
+
+/* Rules List Styling */
+.rules-list {
+    text-align: left;
+    padding: 0 20px;
+    list-style-type: none;
+}
+
+.rules-list li {
+    margin-bottom: 15px;
+    font-size: 14px;
+    padding-left: 1.5em;
+    text-indent: -1.5em;
+}
+
+/* Form Elements */
+input, textarea, select {
+    width: 100%;
+    margin: 10px 0;
     padding: 10px;
     border-radius: 8px;
-    text-align: left;
-}
-
-.discord-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 2px solid #00ff88;
-}
-
-#discordLogin {
-    background: linear-gradient(90deg, #7289da, #5865f2);
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
     color: white;
-    padding: 10px;
+    outline: none;
+    font-size: 16px;
+    transition: 0.3s ease-in-out;
+    resize: none;
+}
+
+textarea {
+    min-height: 80px;
+}
+
+input:focus, textarea:focus, select:focus {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(72, 255, 72, 0.6);
+}
+
+/* Button Styles */
+button {
+    background: linear-gradient(90deg, #4CAF50, #00ff88);
+    color: white;
+    padding: 12px;
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -43,10 +95,92 @@ body {
     font-weight: bold;
     transition: all 0.3s ease-in-out;
     width: 100%;
+    margin-top: 15px;
 }
 
-#discordLogin:hover {
-    background: linear-gradient(90deg, #5865f2, #7289da);
-    box-shadow: 0 0 15px rgba(114, 137, 218, 0.7);
+button:hover {
+    background: linear-gradient(90deg, #00ff88, #4CAF50);
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.7);
     transform: scale(1.05);
+}
+
+/* Admin Panel (Updated) */
+.admin-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    text-align: center;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+    align-items: center; /* Center buttons */
+    gap: 10px; /* Space between buttons */
+    background: rgba(0, 0, 0, 0.6);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Admin Panel Buttons */
+.admin-panel button {
+    width: 180px; /* Consistent button width */
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #333;
+    color: white;
+    transition: 0.3s;
+}
+
+.admin-panel button:hover {
+    background-color: #555;
+}
+
+/* Status Display */
+#statusDisplay {
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 14px;
+    background: rgba(255, 0, 0, 0.3);
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.status-online {
+    background: rgba(0, 255, 0, 0.3) !important;
+}
+
+.status-offline {
+    background: rgba(255, 0, 0, 0.3) !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .main-container {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .container, .rules-container {
+        width: 90%;
+        max-width: 600px;
+    }
+
+    .admin-panel {
+        position: static;
+        width: 100%;
+        margin-top: 20px;
+    }
+
+    .admin-panel button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 400px) {
+    .container {
+        padding: 20px;
+    }
 }
