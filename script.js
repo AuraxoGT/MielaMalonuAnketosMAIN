@@ -322,4 +322,4 @@ fetch("https://discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Ach
     blacklistButton.addEventListener("click", addToBlacklist);
     removeButton.addEventListener("click", removeFromBlacklist);
     fetchStatus();
-});
+})
