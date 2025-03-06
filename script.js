@@ -153,9 +153,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         let discordId;
         if (localStorage.getItem("discordUser")) {
             discordId = JSON.parse(localStorage.getItem("discordUser")).discordID;
-        } else {
-            discordId = document.getElementById("username").value.trim();
-        }
+     
 
         if (blacklist.includes(discordId)) {
             responseMessage.innerText = "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!";
