@@ -252,27 +252,58 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // --- Discord OAuth Handlers ---
     discordButton.addEventListener("click", function () {
-        const authUrl = `${API_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
-        window.location.href = authUrl;
-    });
+        // Update your Discord OAuth scopes
+const DISCORD_SCOPES = ['identify', 'guilds.members.read']; // Add guilds.members.read for presence
 
-    function fetchUser(token) {
-        fetch(USER_URL, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-        .then(res => res.json())
-        .then(user => {
-            if (!user.id) {
-                console.error("Invalid user data:", user);
-                return;
-            }
-            user.avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
-            storeUser(user);
-            updateUI(user);
-        })
-        .catch(err => console.error("Error fetching user:", err));
+// In your fetchUser function
+async function fetchUser(token) {
+    try {
+        // First get basic user info
+        const userRes = await fetch(USER_URL, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const user = await userRes.json();
+        
+        // Then get presence info (replace YOUR_GUILD_ID with actual guild ID)
+        const presenceRes = await fetch(`https://discord.com/api/v10/users/@me/guilds/1325850250027597845/member`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const presenceData = await presenceRes.json();
+        
+        // Store presence status
+        user.presence = presenceData.presence?.status || 'offline';
+        user.activities = presenceData.activities || [];
+        
+        // Update UI with presence
+        updateUI(user);
+    } catch (error) {
+        console.error("Error fetching user data:", error);
     }
+}
 
+// Update your updateUI function
+function updateUI(user) {
+    if (user) {
+        profileContainer.innerHTML = `
+            <div class="avatar-wrapper">
+                <img src="${user.avatar}" alt="Avatar">
+                <div class="status-indicator ${user.presence}"></div>
+            </div>
+            <div class="user-info">
+                <p class="username">${user.username}</p>
+                <p class="activity">${getActivityText(user.activities)}</p>
+            </div>
+            <button id="logout">Log Out</button>
+        `;
+        // ... rest of your UI code
+    }
+}
+
+// Helper function to get activity text
+function getActivityText(activities) {
+    const activity = activities.find(a => a.type === 0);
+    return activity ? `${activity.emoji?.name || ''} ${activity.name}` : 'No activity';
+}
     function extractTokenFromURL() {
         const hash = window.location.hash.substring(1);
         const params = new URLSearchParams(hash);
