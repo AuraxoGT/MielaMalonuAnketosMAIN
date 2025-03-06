@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             state.lastStatus = data.status;
             state.blacklist = data.blacklist || [];
             updateStatusDisplay();
-            console.log("🔄 Application state updated " `${token}`);
+            console.log("🔄 Application state updated");
         }
     }
 
