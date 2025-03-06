@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", async function () {
-    console.log("✅ DOM fully loaded!.");
+    console.log("✅ DOM fully loaded!");
 
     // Get elements
     const form = document.getElementById("applicationForm");
@@ -62,20 +62,20 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // --- Admin Authentication ---
     function authenticateAdmin() {
-        return sessionStorage.getItem("adminAuth") === "true"; // Use sessionStorage (resets on browser close)
+        return sessionStorage.getItem("adminAuth") === "true";
     }
 
     function requestPassword() {
         const password = prompt("🔑 Enter admin password:");
         if (password === "987412365") {
-            sessionStorage.setItem("adminAuth", "true"); // Store admin auth in sessionStorage
+            sessionStorage.setItem("adminAuth", "true");
             alert("✅ Authentication successful!");
         } else {
             alert("❌ Invalid password!");
         }
     }
 
-    // --- Add to Blacklist ---
+    // --- Blacklist Management ---
     async function addToBlacklist() {
         if (!authenticateAdmin()) {
             requestPassword();
@@ -93,7 +93,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         alert(`✅ User ID "${newId}" has been blacklisted.`);
     }
 
-    // --- Remove from Blacklist ---
     async function removeFromBlacklist() {
         if (!authenticateAdmin()) {
             requestPassword();
@@ -141,9 +140,54 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // --- Discord Integration ---
+    const CLIENT_ID = "1263389179249692693";
+    const REDIRECT_URI = "https://auraxogt.github.io/mmwebtest/";
+    const API_ENDPOINT = "https://discord.com/api/oauth2/authorize";
+    const USER_URL = "https://discord.com/api/users/@me";
+
+    const discordButton = document.getElementById("discord-login");
+    const profileContainer = document.getElementById("profile-container");
+
+    function getStoredUser() {
+        return JSON.parse(localStorage.getItem("discord_user"));
+    }
+
+    function storeUser(user) {
+        localStorage.setItem("discord_user", JSON.stringify(user));
+    }
+
+    function clearUser() {
+        localStorage.removeItem("discord_user");
+        location.reload();
+    }
+
+    function updateUI(user) {
+        if (user) {
+            profileContainer.innerHTML = `
+                <img src="${user.avatar}" alt="Avatar" width="50">
+                <p>${user.username}#${user.discriminator}</p>
+                <button id="logout">Log Out</button>
+            `;
+            profileContainer.style.display = "block";
+            discordButton.style.display = "none";
+            document.getElementById("logout").addEventListener("click", clearUser);
+        } else {
+            profileContainer.style.display = "none";
+            discordButton.style.display = "block";
+        }
+    }
+
     // --- Form Submission ---
     form.addEventListener("submit", function (event) {
         event.preventDefault();
+
+        const user = getStoredUser();
+        if (!user) {
+            responseMessage.innerText = "❌ Turite prisijungti su Discord prieš pateikiant!";
+            responseMessage.style.color = "red";
+            return;
+        }
 
         if (lastStatus === "offline") {
             responseMessage.innerText = "❌ Anketos šiuo metu uždarytos.";
@@ -151,8 +195,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
 
-        const username = document.getElementById("username").value.trim();
-        if (blacklist.includes(username)) {
+        const userId = user.id;
+        document.getElementById("username").value = userId;
+
+        if (blacklist.includes(userId)) {
             responseMessage.innerText = "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!";
             responseMessage.style.color = "red";
             return;
@@ -165,15 +211,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         const pc = document.getElementById("pc").value.trim();
         const isp = document.getElementById("isp").value.trim();
 
-        console.log("✅ Form submitted with data:", { username, age, reason, pl, kl, pc, isp });
+        console.log("✅ Form submitted with data:", { userId, age, reason, pl, kl, pc, isp });
 
         const payload = {
             embeds: [
                 {
                     title: "📢 Nauja Aplikacija!",
-                    color: 00000000,
+                    color: 0x000000,
                     fields: [
-                        { name: "👤 Asmuo", value: `<@${username}>`, inline: true },
+                        { name: "👤 Asmuo", value: `<@${userId}>`, inline: true },
                         { name: "🎂 Metai", value: `**${age}**`, inline: true },
                         { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
                         { name: "🔫 Pašaudymo lygis", value: `**${pl} / 10**`, inline: true },
@@ -204,51 +250,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
     });
 
-    // Add event listeners
-    statusButton.addEventListener("click", toggleStatus);
-    blacklistButton.addEventListener("click", addToBlacklist);
-    removeButton.addEventListener("click", removeFromBlacklist);
-
-
-
-    const CLIENT_ID = "1263389179249692693";
-    const REDIRECT_URI = "https://auraxogt.github.io/mmwebtest/"; // Must match exactly as set in Discord Dev Portal
-    const API_ENDPOINT = "https://discord.com/api/oauth2/authorize";
-    const USER_URL = "https://discord.com/api/users/@me";
-
-     const discordButton = document.getElementById("discord-login");
-    const profileContainer = document.getElementById("profile-container");
-
-    function getStoredUser() {
-        return JSON.parse(localStorage.getItem("discord_user"));
-    }
-
-    function storeUser(user) {
-        localStorage.setItem("discord_user", JSON.stringify(user));
-    }
-
-    function clearUser() {
-        localStorage.removeItem("discord_user");
-        location.reload();
-    }
-
-    function updateUI(user) {
-        if (user) {
-            profileContainer.innerHTML = `
-                <img src="${user.avatar}" alt="Avatar" width="50">
-                <p>${user.username}#${user.discriminator}</p>
-                <button id="logout">Log Out</button>
-            `;
-            profileContainer.style.display = "block";
-            discordButton.style.display = "none";
-
-            document.getElementById("logout").addEventListener("click", clearUser);
-        } else {
-            profileContainer.style.display = "none";
-            discordButton.style.display = "block";
-        }
-    }
-
+    // --- Discord OAuth Handlers ---
     discordButton.addEventListener("click", function () {
         const authUrl = `${API_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
         window.location.href = authUrl;
@@ -277,18 +279,16 @@ document.addEventListener("DOMContentLoaded", async function () {
         return params.get("access_token");
     }
 
+    // Initialization
     const token = extractTokenFromURL();
     if (token) {
         fetchUser(token);
-        window.history.replaceState({}, document.title, REDIRECT_URI); // Clean URL after auth
+        window.history.replaceState({}, document.title, REDIRECT_URI);
     }
 
     updateUI(getStoredUser());
-
-    document.querySelector("form").addEventListener("submit", function () {
-        const user = getStoredUser();
-        if (user) {
-            document.getElementById("username").value = user.id;
-        }
-    });
+    statusButton.addEventListener("click", toggleStatus);
+    blacklistButton.addEventListener("click", addToBlacklist);
+    removeButton.addEventListener("click", removeFromBlacklist);
+    fetchStatus();
 });
