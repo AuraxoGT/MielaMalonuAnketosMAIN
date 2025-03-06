@@ -209,6 +209,7 @@ button:hover {
     justify-content: center;
     gap: 10px;
     margin-top: 10px;
+    background-color: red
 }
 
 #profile-container img {
