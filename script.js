@@ -205,7 +205,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             responseMessage.innerText = "❌ Nepavyko išsiųsti aplikacijos.";
             responseMessage.style.color = "red";
         });
-    });
+   
 
     // --- Add original event listeners for admin functions ---
     statusButton.addEventListener("click", toggleStatus);
