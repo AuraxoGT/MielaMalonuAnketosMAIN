@@ -212,67 +212,74 @@ document.addEventListener("DOMContentLoaded", async function () {
         const isp = document.getElementById("isp").value.trim();
 
         console.log("✅ Form submitted with data:", { userId, age, reason, pl, kl, pc, isp });
-          const appId = `${userId}-${Date.now()}`; 
-        const payload = {
-           username: "📝 Application System", // Required for webhook components
-    avatar_url: "https://cdn.discordapp.com/attachments/1340789491564281917/1340794719076356116/1739740774386.gif?ex=67caba23&is=67c968a3&hm=438c3e702352427ab8d57f15d3d4b82adc2a8d6b7117005e0f7708b26b942c39&", // Optional but recommended
-    embeds: [
-        {
-            title: "📢 Nauja Aplikacija!",
-            color: 0x2b2d31, // Changed to Discord's new default color
-            fields: [
-                { name: "👤 Asmuo", value: `<@${userId}>`, inline: true },
-                { name: "🎂 Metai", value: `**${age}**`, inline: true },
-                { name: "📝 Priežastis", value: `**${reason}**`, inline: true },
-                { name: "🔫 Pašaudymas", value: `**${pl}/10**`, inline: true },
-                { name: "📞 Komunikacija", value: `**${kl}/10**`, inline: true },
-                { name: "🖥️ PC Check", value: `**${pc}**`, inline: true },
-                { name: "🚫 Ispėjimai", value: `**${isp}**`, inline: true },
-            ],
-            timestamp: new Date().toISOString(),
-            footer: { text: "Application ID: " + appId } // Added footer for tracking
-        }
-    ],
-    components: [
-        {
-            type: 1,
-            components: [
-                {
-                    type: 2,
-                    style: 3,
-                    label: "Patvirtinti",
-                    custom_id: `accept_${appId}`,
-                    emoji: "✅"
-                },
-                {
-                    type: 2,
-                    style: 4,
-                    label: "Atmesti",
-                    custom_id: `reject_${appId}`,
-                    emoji: "❌"
-                }
-            ]
-        }
-    ]
+const appId = `${userId.slice(0, 16)}-${Date.now()}`; // Truncate user ID for safety
+
+const payload = {
+    username: "📝 Application System",
+    avatar_url: "https://your-valid-image-url.com/avatar.png", // REPLACE WITH REAL URL
+    embeds: [{
+        title: "📢 Nauja Aplikacija!",
+        color: 2827569, // Use decimal equivalent of 0x2b2d31
+        fields: [
+            { name: "👤 Asmuo", value: sanitize(userId), inline: true },
+            { name: "🎂 Metai", value: sanitize(age), inline: true },
+            { name: "📝 Priežastis", value: sanitize(reason), inline: true },
+            { name: "🔫 Pašaudymas", value: `${sanitize(pl)}/10`, inline: true },
+            { name: "📞 Komunikacija", value: `${sanitize(kl)}/10`, inline: true },
+            { name: "🖥️ PC Check", value: sanitize(pc), inline: true },
+            { name: "🚫 Ispėjimai", value: sanitize(isp), inline: true }
+        ],
+        timestamp: new Date().toISOString(),
+        footer: { text: `ID: ${appId}` }
+    }],
+    components: [{
+        type: 1,
+        components: [
+            {
+                type: 2,
+                style: 3,
+                label: "Patvirtinti",
+                custom_id: `accept_${appId.replace(/[^a-z0-9_-]/gi, "")}`, // Sanitized ID
+                emoji: { name: "✅" }
+            },
+            {
+                type: 2,
+                style: 4,
+                label: "Atmesti",
+                custom_id: `reject_${appId.replace(/[^a-z0-9_-]/gi, "")}`, // Sanitized ID
+                emoji: { name: "❌" }
+            }
+        ]
+    }]
 };
 
-        fetch("https://discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Achvrej1Kr-W-rXqZVibcftwWFn5sMZyhIMSb9E4r975HbQI3tF", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        }).then(response => {
-            if (response.ok) {
-                responseMessage.innerText = `✅ Aplikacija pateikta!`;
-                responseMessage.style.color = "green";
-                form.reset();
-            } else {
-                throw new Error("❌ Failed to send application.");
-            }
-        }).catch(error => {
-            responseMessage.innerText = "❌ Nepavyko išsiųsti aplikacijos.";
-            responseMessage.style.color = "red";
-        });
-    });
+// Add validation helper
+function sanitize(input) {
+    return String(input)
+        .substring(0, 1024)
+        .replace(/[@#`*_~]/g, "");
+}
+
+fetch("YOUR_WEBHOOK_URL", { // DOUBLE CHECK URL IS CORRECT
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+})
+.then(async response => {
+    const data = await response.json();
+    if (!response.ok) {
+        console.error("Discord API Error:", data);
+        throw new Error(data.message || "Bad Request");
+    }
+    responseMessage.innerText = "✅ Aplikacija pateikta!";
+    responseMessage.style.color = "green";
+    form.reset();
+})
+.catch(error => {
+    console.error("Submission Error:", error);
+    responseMessage.innerText = `❌ Klaida: ${error.message}`;
+    responseMessage.style.color = "red";
+});
 
     // --- Discord OAuth Handlers ---
     discordButton.addEventListener("click", function () {
