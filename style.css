@@ -205,24 +205,80 @@ button:hover {
 
 #profile-container {
     display: flex;
-    align-items: Left;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 10px;
-    
+    align-items: center;
+    gap: 12px;
+    margin: 15px 0;
+    padding: 10px 15px;
+    background: rgba(54, 57, 63, 0.9);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+    max-width: fit-content;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+#profile-container:hover {
+    background: rgba(64, 68, 76, 0.95);
+    transform: translateY(-1px);
 }
 
 #profile-container img {
     border-radius: 50%;
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
+    border: 2px solid #5865f2;
+    transition: transform 0.3s ease;
+}
+
+#profile-container img:hover {
+    transform: scale(1.05);
+}
+
+#profile-container p {
+    color: #ffffff;
+    font-family: 'Ginto Nord', 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 #profile-container button {
-    background-color: red;
+    background-color: #ed4245;
     color: white;
     border: none;
-    padding: 5px 10px;
+    padding: 6px 12px;
     cursor: pointer;
-    border-radius: 5px;
+    border-radius: 4px;
+    font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#profile-container button:hover {
+    background-color: #ff4b4e;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+#profile-container button::before {
+    content: "🚪";
+    filter: brightness(1.2);
+}
+
+/* Discord-like status indicator */
+#profile-container::after {
+    content: "";
+    width: 12px;
+    height: 12px;
+    background: #3ba55c;
+    border-radius: 50%;
+    position: relative;
+    left: -35px;
+    top: 20px;
+    border: 2px solid #18191c;
 }
