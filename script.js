@@ -131,17 +131,19 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     function createApplicationEmbed(data, appId) {
         return {
-            title: "📢 Nauja Aplikacija!",
-            color: 0x2B2D31,
-            fields: [
-                { name: "👤 Asmuo", value: sanitizeInput(`<@${data.userId}>`), inline: true },
-                { name: "🎂 Metai", value: sanitizeInput(data.age), inline: true },
-                { name: "📝 Priežastis", value: sanitizeInput(data.reason), inline: true },
-                { name: "🔫 Pašaudymas", value: sanitizeInput(`${data.pl}/10`), inline: true },
-                { name: "📞 Komunikacija", value: sanitizeInput(`${data.kl}/10`), inline: true },
-                { name: "🖥️ PC Check", value: sanitizeInput(data.pc), inline: true },
-                { name: "🚫 Ispėjimai", value: sanitizeInput(data.isp), inline: true }
-            ],
+             embeds: [
+                {
+                    title: "📢 Nauja Aplikacija!",
+                    color: 0x000000,
+                    fields: [
+                        { name: "👤 Asmuo", value: `<@${userId}>`, inline: true },
+                        { name: "🎂 Metai", value: `**${age}**`, inline: true },
+                        { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
+                        { name: "🔫 Pašaudymo lygis", value: `**${pl} / 10**`, inline: true },
+                        { name: "📞 Komunikacijos lygis", value: `**${kl} / 10**`, inline: true },
+                        { name: "🖥️ PC Check", value: `**${pc}**`, inline: true },
+                        { name: "🚫 Ispėjimo išpirkimas", value: `**${isp}**`, inline: true },
+                    ],
             timestamp: new Date().toISOString(),
             footer: { text: `Application ID: ${appId}` }
         };
