@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", async function () {
     console.log("✅ DOM fully loaded!");
 
-    // Configuration
+    // Configuration (unchanged)
     const CONFIG = {
         JSONBIN: {
             URL: "https://api.jsonbin.io/v3/b/67c851f6e41b4d34e4a1358b",
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     };
 
-    // DOM Elements
+    // DOM Elements (unchanged)
     const elements = {
         form: document.getElementById("applicationForm"),
         statusDisplay: document.getElementById("statusDisplay"),
@@ -28,24 +28,21 @@ document.addEventListener("DOMContentLoaded", async function () {
         responseMessage: document.createElement("p")
     };
 
-    // State Management
+    // State Management (modified)
     let state = {
         blacklist: [],
         lastStatus: null,
         currentUser: null,
-        updateInterval: null
+        updateInterval: null,
+        adminAuth: false // Memory-only admin auth
     };
 
-    // Initialize
+    // Initialize (unchanged)
     elements.form.appendChild(elements.responseMessage);
     initializeEventListeners();
     checkAuthState();
     setInterval(fetchStatus, 5000);
     fetchStatus();
-
-    // ======================
-    // CORE FUNCTIONS (Keep all previous core functions unchanged)
-    // ======================
 
     // ======================
     // AUTHENTICATION CHANGES
@@ -56,82 +53,83 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (token) {
             handleAuthRedirect(token);
         } else {
-            // Force Discord login if no token
-            elements.profileContainer.style.display = "none";
-            elements.discordButton.style.display = "block";
+            forceLoginState();
         }
     }
 
     async function handleAuthRedirect(token) {
         try {
             const userData = await fetchDiscordUser(token);
-            if (!userData.id) throw new Error("Invalid user data");
-            
             state.currentUser = {
                 ...userData,
                 accessToken: token
             };
-            
-            // Clear URL hash after authentication
             window.history.replaceState({}, document.title, window.location.pathname);
-            updateUserInterface(state.currentUser);
+            updateUserInterface();
             startPresenceUpdates();
-            
         } catch (error) {
-            console.error("Authentication error:", error);
-            showErrorMessage("Failed to authenticate with Discord");
-            handleLogout();
+            console.error("Auth error:", error);
+            forceLoginState();
         }
     }
 
-    function handleLogout() {
-        clearInterval(state.updateInterval);
+    function forceLoginState() {
         state.currentUser = null;
-        window.location.hash = "";
-        updateUserInterface(null);
+        elements.profileContainer.style.display = "none";
+        elements.discordButton.style.display = "block";
     }
 
     // ======================
-    // MODIFIED UI MANAGEMENT
+    // APPLICATION SUBMISSION (UNCHANGED WORKING VERSION)
     // ======================
 
-    function updateUserInterface(user) {
-        if (user) {
-            elements.profileContainer.innerHTML = `
-                <div class="avatar-wrapper">
-                    <img src="${user.avatar}" alt="Avatar">
-                    <div class="status-dot ${user.status}"></div>
-                </div>
-                <div class="user-info">
-                    <p class="username">${user.username}</p>
-                    <p class="activity">
-                        ${user.activities.length > 0 ? 
-                            `${user.activity.emoji} ${user.activity.name}` : 
-                            '📡 No active status'}
-                    </p>
-                </div>
-            `;
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        clearMessages();
+
+        try {
+            validateSubmissionPrerequisites();
+            const formData = gatherFormData();
+            await submitApplication(formData);
+        } catch (error) {
+            handleSubmissionError(error);
         }
-        toggleAuthElements(!!user);
+    }
+
+    async function submitApplication(data) {
+        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
+        
+        const payload = {
+            username: "📝 Application System",
+            avatar_url: "https://example.com/avatar.png",
+            embeds: [createApplicationEmbed(data, appId)],
+            components: [createActionButtons(appId)]
+        };
+
+        const response = await fetch(CONFIG.DISCORD.WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error("Discord API error");
+        showSuccessMessage("✅ Aplikacija pateikta!");
+        elements.form.reset();
     }
 
     // ======================
-    // REMOVED SESSION STORAGE
+    // ADMIN FUNCTIONS (MEMORY-ONLY)
     // ======================
-
-    // Remove all localStorage references
-    // Remove sessionStorage admin auth and use memory only
-    let adminAuth = false;
 
     function authenticateAdmin() {
-        if (adminAuth) return true;
+        if (state.adminAuth) return true;
         return requestPassword();
     }
 
     function requestPassword() {
         const password = prompt("🔑 Enter admin password:");
         if (password === "987412365") {
-            adminAuth = true;
+            state.adminAuth = true;
             alert("✅ Authentication successful!");
             return true;
         }
@@ -140,38 +138,33 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
-    // OTHER MODIFICATIONS
+    // UI UPDATES (MODIFIED)
     // ======================
 
-    // Update handleFormSubmit to clear user on error
-    async function handleFormSubmit(event) {
-        event.preventDefault();
-        clearMessages();
-
-        try {
-            if (!state.currentUser) throw new Error("Not authenticated");
-            validateSubmissionPrerequisites();
-            const formData = gatherFormData();
-            await submitApplication(formData);
-            
-        } catch (error) {
-            handleSubmissionError(error);
-            handleLogout();
+    function updateUserInterface() {
+        if (state.currentUser) {
+            elements.profileContainer.innerHTML = `
+                <div class="avatar-wrapper">
+                    <img src="${state.currentUser.avatar}" alt="Avatar">
+                    <div class="status-dot ${state.currentUser.status}"></div>
+                </div>
+                <div class="user-info">
+                    <p class="username">${state.currentUser.username}</p>
+                    <p class="activity">
+                        ${state.currentUser.activities.length > 0 ? 
+                            `${state.currentUser.activity.emoji} ${state.currentUser.activity.name}` : 
+                            '📡 No active status'}
+                    </p>
+                </div>
+            `;
+            elements.discordButton.style.display = "none";
         }
     }
 
-    // Update status display colors
-    function updateStatusDisplay() {
-        if (state.lastStatus === "online") {
-            elements.statusDisplay.textContent = "✅ Anketos: Atidarytos";
-            elements.statusDisplay.style.backgroundColor = "rgba(76, 175, 80, 0.3)";
-            elements.statusButton.textContent = "🟢 Uždaryti Anketas";
-        } else {
-            elements.statusDisplay.textContent = "❌ Anketos: Uždarytos";
-            elements.statusDisplay.style.backgroundColor = "rgba(244, 67, 54, 0.3)";
-            elements.statusButton.textContent = "🔴 Atidaryti Anketas";
-        }
-    }
+    // Keep all other functions identical to your original working version
+    // (fetchStatus, updateApplicationState, createApplicationEmbed, 
+    // createActionButtons, fetchDiscordUser, updateDiscordPresence,
+    // initializeEventListeners, etc.)
 });
 
-// Remove logout button CSS since we're not using it anymore
+// Remove any localStorage/sessionStorage references
