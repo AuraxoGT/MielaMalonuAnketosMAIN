@@ -414,7 +414,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     function handleSubmissionError(error) {
         console.error("Submission error:", error);
         const message = {
-            "Not authenticated": "❌ Turite prisijungti su Discord prieš pateikiant!",
+            "Not authenticated": "❌ Turite prisijungti su Discord prieš pateikiant! (Jei esate prisijunge atsijunkite ir prisijunkite iš naujo",
             "Applications closed": "❌ Anketos šiuo metu uždarytos.",
             "User blacklisted": "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!",
         }[error.message] || "❌ Nepavyko išsiųsti aplikacijos.";
