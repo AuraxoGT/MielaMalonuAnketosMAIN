@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     title: "📢 Nauja Aplikacija!",
                     color: 00000000,
                     fields: [
-                        { name: "👤 Asmuo", value: `<@${username}>`, inline: true },
+                        { name: "👤 Asmuo", value: `<@${user.id}>`, inline: true },
                         { name: "🎂 Metai", value: `**${age}**`, inline: true },
                         { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
                         { name: "🔫 Pašaudymo lygis", value: `**${pl} / 10**`, inline: true },
@@ -211,8 +211,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 
 document.addEventListener("DOMContentLoaded", function () {
-    const CLIENT_ID = "YOUR_DISCORD_CLIENT_ID";
-    const REDIRECT_URI = "YOUR_REDIRECT_URI";
+    const CLIENT_ID = "1263389179249692693";
+    const REDIRECT_URI = "https://auraxogt.github.io/mmwebtest/";
     const API_ENDPOINT = "https://discord.com/api/oauth2/authorize";
     const USER_URL = "https://discord.com/api/users/@me";
 
