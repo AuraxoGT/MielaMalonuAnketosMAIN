@@ -1,5 +1,5 @@
 const clientId = "1263389179249692693"; // Replace with your Discord Client ID
-const redirectUri = encodeURIComponent("https://mielamalonu.xyz"); // Replace with your actual redirect URL
+const redirectUri = encodeURIComponent("https://auraxogt.github.io/mmwebtest/"); // Replace with your actual redirect URL
 const authEndpoint = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=identify`;
 
 let discordUser = null; // Store authenticated user data
