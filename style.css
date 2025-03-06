@@ -1,0 +1,52 @@
+/* General Styles */
+body {
+    font-family: 'Poppins', Arial, sans-serif;
+    background: rgba(0, 0, 0, 0.5) url('https://cdn.discordapp.com/attachments/1340789491564281917/1340794718526767195/1739740774386.gif?ex=67c968a3&is=67c81723&hm=d9064031eb6e6926859e6e72f9aee22e1a1da21a226f50dece5d495204b781df&');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: white;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+/* Discord Login/Profile */
+.discord-widget {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.discord-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #00ff88;
+}
+
+#discordLogin {
+    background: linear-gradient(90deg, #7289da, #5865f2);
+    color: white;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease-in-out;
+    width: 100%;
+}
+
+#discordLogin:hover {
+    background: linear-gradient(90deg, #5865f2, #7289da);
+    box-shadow: 0 0 15px rgba(114, 137, 218, 0.7);
+    transform: scale(1.05);
+}
