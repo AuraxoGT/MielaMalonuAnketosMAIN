@@ -254,7 +254,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <p class="activity">
                         ${user.activities.length > 0 ? 
                             `${user.activity.emoji} ${user.activity.name}` : 
-                            '📡 No active status'}
+                            '📡 No active status' `${token}`}
                     </p>
                     ${user.status === 'dnd' ? '<div class="dnd-banner">Do Not Disturb</div>' : ''}
                 </div>
