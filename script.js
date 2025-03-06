@@ -165,8 +165,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     function updateUI(user) {
         if (user) {
             profileContainer.innerHTML = `
-                <img src="${user.avatar}" alt="Avatar" width="50" id=profile>
-                <p>${user.username} id=username</p>
+                <img src="${user.avatar}" alt="Avatar" width="50">
+                <p>${user.username}</p>
                 <button id="logout">Log Out</button>
             `;
             profileContainer.style.display = "block";
