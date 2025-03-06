@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (user) {
             profileContainer.innerHTML = `
                 <img src="${user.avatar}" alt="Avatar" width="50">
-                <p>${user.username}#${user.discriminator}</p>
+                <p>${user.username}</p>
                 <button id="logout">Log Out</button>
             `;
             profileContainer.style.display = "block";
