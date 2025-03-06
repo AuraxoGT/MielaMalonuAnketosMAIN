@@ -445,27 +445,3 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 });
 
-/* REQUIRED CSS */
-.status-dot {
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 3px solid #18191c;
-}
-
-.status-dot.online { background: #3ba55c; }
-.status-dot.idle { background: #faa81a; }
-.status-dot.dnd { background: #ed4245; }
-.status-dot.offline { background: #747f8d; }
-
-.dnd-banner {
-    background: #ed4245;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.8em;
-    margin-top: 4px;
-}
