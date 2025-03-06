@@ -11,12 +11,14 @@ document.addEventListener("DOMContentLoaded", async function () {
     const blacklistButton = document.getElementById("blacklistButton");
     const removeButton = document.getElementById("removeButton");
     
-    // --- NEW: Log Out Button (ensure you have it in your HTML) ---
+    // NEW: Log Out Button (ensure you have it in your HTML)
     const logoutButton = document.getElementById("logoutButton");
 
-    // JSONBin.io API URL (Your original API integration remains unchanged)
-    const JSONBIN_URL = "https://api.jsonbin.io/v3/b/67c851f6e41b4d34e4a1358b";
-    const API_KEY = "$2a$10$Fhj82wgpsjkF/dgzbqlWN.bvyoK3jeIBkbQm9o/SSzDo9pxNryLi.";
+    // Discord OAuth Integration
+    const clientId = "1263389179249692693";  // Replace with your Discord Client ID
+    const redirectUri = "https://auraxogt.github.io/mmwebtest/";    // Replace with your OAuth Redirect URL
+    const scope = "identify";
+    const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`;
 
     // Global variables
     let blacklist = [];
@@ -25,8 +27,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     // --- Fetch Status and Blacklist from JSONBin ---
     async function fetchStatus() {
         try {
-            const response = await fetch(JSONBIN_URL, {
-                headers: { "X-Master-Key": API_KEY }
+            const response = await fetch("https://api.jsonbin.io/v3/b/67c851f6e41b4d34e4a1358b", {
+                headers: { "X-Master-Key": "$2a$10$Fhj82wgpsjkF/dgzbqlWN.bvyoK3jeIBkbQm9o/SSzDo9pxNryLi." }
             });
             const data = await response.json();
 
@@ -62,15 +64,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     // --- Periodic Status Check ---
     setInterval(fetchStatus, 5000); // Check every 5 seconds
 
-    // --- Admin Authentication (Unmodified) ---
+    // --- Admin Authentication ---
     function authenticateAdmin() {
-        return sessionStorage.getItem("adminAuth") === "true"; // Use sessionStorage (resets on browser close)
+        return sessionStorage.getItem("adminAuth") === "true";
     }
 
     function requestPassword() {
         const password = prompt("🔑 Enter admin password:");
         if (password === "987412365") {
-            sessionStorage.setItem("adminAuth", "true"); // Store admin auth in sessionStorage
+            sessionStorage.setItem("adminAuth", "true");
             alert("✅ Authentication successful!");
         } else {
             alert("❌ Invalid password!");
@@ -123,11 +125,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     // --- Update JSONBin ---
     async function updateJSONBin(newStatus = lastStatus) {
         try {
-            await fetch(JSONBIN_URL, {
+            await fetch("https://api.jsonbin.io/v3/b/67c851f6e41b4d34e4a1358b", {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
-                    "X-Master-Key": API_KEY,
+                    "X-Master-Key": "$2a$10$Fhj82wgpsjkF/dgzbqlWN.bvyoK3jeIBkbQm9o/SSzDo9pxNryLi."
                 },
                 body: JSON.stringify({ status: newStatus, blacklist })
             });
@@ -176,7 +178,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                     title: "📢 Nauja Aplikacija!",
                     color: 0,
                     fields: [
-                        // Using the authenticated user's Discord ID here
                         { name: "👤 Asmuo", value: `<@${discordId}>`, inline: true },
                         { name: "🎂 Metai", value: `**${age}**`, inline: true },
                         { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
@@ -216,21 +217,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     // --- Load initial status ---
     fetchStatus();
 
-    // ----- NEW: Discord OAuth Integration -----
-    // Use localStorage instead of sessionStorage for persistence.
-    const clientId = "1263389179249692693";  // Replace with your Discord Client ID
-    const redirectUri = "https://auraxogt.github.io/mmwebtest/";      // Replace with your OAuth Redirect URL
-    const scope = "identify";
-    const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`;
-
-    // If user clicks the "username" field (or a designated element) and they're not authorized, redirect them.
-    if (!localStorage.getItem("discordUser")) {
-        document.getElementById("username").addEventListener("focus", function () {
+    // --- OAuth2 Login Button ---
+    const loginButton = document.getElementById("loginButton");
+    if (loginButton) {
+        loginButton.addEventListener("click", function () {
             window.location.href = authUrl;
         });
     }
 
-    // Function to fetch Discord user data (requires a backend endpoint to exchange the OAuth code)
+    // --- Discord OAuth Integration ---
     function getDiscordUserData(code) {
         fetch(`/get-discord-data?code=${code}`)
             .then(response => response.json())
@@ -248,7 +243,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             .catch(error => console.error("Error fetching Discord user data:", error));
     }
 
-    // Handle OAuth code if present in URL (after Discord redirects back)
     function handleOAuthRedirect() {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
@@ -261,7 +255,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         handleOAuthRedirect();
     }
 
-    // --- NEW: Log Out functionality ---
+    // --- Log Out functionality ---
     if (logoutButton) {
         logoutButton.addEventListener("click", function () {
             localStorage.removeItem("discordUser");
