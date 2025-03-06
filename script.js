@@ -214,21 +214,23 @@ document.addEventListener("DOMContentLoaded", async function () {
         console.log("✅ Form submitted with data:", { userId, age, reason, pl, kl, pc, isp });
           const appId = `${userId}-${Date.now()}`; 
         const payload = {
-          username: "📝 Application System", // Required for webhook components
-           embeds: [
+           username: "📝 Application System", // Required for webhook components
+    avatar_url: "https://cdn.discordapp.com/attachments/1340789491564281917/1340794719076356116/1739740774386.gif?ex=67caba23&is=67c968a3&hm=438c3e702352427ab8d57f15d3d4b82adc2a8d6b7117005e0f7708b26b942c39&", // Optional but recommended
+    embeds: [
         {
             title: "📢 Nauja Aplikacija!",
-            color: 0x000000,
+            color: 0x2b2d31, // Changed to Discord's new default color
             fields: [
                 { name: "👤 Asmuo", value: `<@${userId}>`, inline: true },
                 { name: "🎂 Metai", value: `**${age}**`, inline: true },
-                { name: "📝 Kodėl nori prisijungti?", value: `**${reason}**`, inline: true },
-                { name: "🔫 Pašaudymo lygis", value: `**${pl} / 10**`, inline: true },
-                { name: "📞 Komunikacijos lygis", value: `**${kl} / 10**`, inline: true },
+                { name: "📝 Priežastis", value: `**${reason}**`, inline: true },
+                { name: "🔫 Pašaudymas", value: `**${pl}/10**`, inline: true },
+                { name: "📞 Komunikacija", value: `**${kl}/10**`, inline: true },
                 { name: "🖥️ PC Check", value: `**${pc}**`, inline: true },
-                { name: "🚫 Ispėjimo išpirkimas", value: `**${isp}**`, inline: true },
+                { name: "🚫 Ispėjimai", value: `**${isp}**`, inline: true },
             ],
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            footer: { text: "Application ID: " + appId } // Added footer for tracking
         }
     ],
     components: [
@@ -238,20 +240,21 @@ document.addEventListener("DOMContentLoaded", async function () {
                 {
                     type: 2,
                     style: 3,
-                    label: "Accept",
-                    custom_id: `accept_${appId}`
+                    label: "Patvirtinti",
+                    custom_id: `accept_${appId}`,
+                    emoji: "✅"
                 },
                 {
                     type: 2,
                     style: 4,
-                    label: "Reject",
-                    custom_id: `reject_${appId}`
+                    label: "Atmesti",
+                    custom_id: `reject_${appId}`,
+                    emoji: "❌"
                 }
             ]
         }
     ]
 };
-
 
         fetch("https://canary.discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Achvrej1Kr-W-rXqZVibcftwWFn5sMZyhIMSb9E4r975HbQI3tF", {
             method: "POST",
