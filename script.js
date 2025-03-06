@@ -209,6 +209,80 @@ document.addEventListener("DOMContentLoaded", async function () {
     blacklistButton.addEventListener("click", addToBlacklist);
     removeButton.addEventListener("click", removeFromBlacklist);
 
+
+document.addEventListener("DOMContentLoaded", function () {
+    const CLIENT_ID = "YOUR_DISCORD_CLIENT_ID";
+    const REDIRECT_URI = "YOUR_REDIRECT_URI";
+    const API_ENDPOINT = "https://discord.com/api/oauth2/authorize";
+    const USER_URL = "https://discord.com/api/users/@me";
+
+    const discordButton = document.getElementById("discord-login");
+    const profileContainer = document.getElementById("profile-container");
+
+    function getStoredUser() {
+        return JSON.parse(localStorage.getItem("discord_user"));
+    }
+
+    function storeUser(user) {
+        localStorage.setItem("discord_user", JSON.stringify(user));
+    }
+
+    function clearUser() {
+        localStorage.removeItem("discord_user");
+        location.reload();
+    }
+
+    function updateUI(user) {
+        if (user) {
+            profileContainer.innerHTML = `
+                <img src="${user.avatar}" alt="Avatar" width="50">
+                <p>${user.username}#${user.discriminator}</p>
+                <button id="logout">Log Out</button>
+            `;
+            profileContainer.style.display = "block";
+            discordButton.style.display = "none";
+            document.getElementById("logout").addEventListener("click", clearUser);
+        } else {
+            profileContainer.style.display = "none";
+            discordButton.style.display = "block";
+        }
+    }
+
+    discordButton.addEventListener("click", function () {
+        const authUrl = `${API_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
+        window.location.href = authUrl;
+    });
+
+    function fetchUser(token) {
+        fetch(USER_URL, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+        .then(res => res.json())
+        .then(user => {
+            user.avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+            storeUser(user);
+            updateUI(user);
+        })
+        .catch(err => console.error("Error fetching user:", err));
+    }
+
+    if (window.location.hash.includes("access_token")) {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        fetchUser(params.get("access_token"));
+        window.history.replaceState({}, document.title, "/");
+    }
+
+    updateUI(getStoredUser());
+
+    document.querySelector("form").addEventListener("submit", function () {
+        const user = getStoredUser();
+        if (user) {
+            document.getElementById("username").value = user.id;
+        }
+    });
+});
+
+
     // Load initial status
     fetchStatus();
 });
