@@ -10,10 +10,18 @@ document.addEventListener("DOMContentLoaded", async function () {
     const statusDisplay = document.getElementById("statusDisplay");
     const blacklistButton = document.getElementById("blacklistButton");
     const removeButton = document.getElementById("removeButton");
+    const discordButton = document.getElementById("discord-login");
+    const profileContainer = document.getElementById("profile-container");
 
     // JSONBin.io API URL
     const JSONBIN_URL = "https://api.jsonbin.io/v3/b/67c851f6e41b4d34e4a1358b";
     const API_KEY = "$2a$10$Fhj82wgpsjkF/dgzbqlWN.bvyoK3jeIBkbQm9o/SSzDo9pxNryLi.";
+
+    // Discord Integration
+    const CLIENT_ID = "1263389179249692693";
+    const REDIRECT_URI = "https://auraxogt.github.io/mmwebtest/";
+    const API_ENDPOINT = "https://discord.com/api/oauth2/authorize";
+    const USER_URL = "https://discord.com/api/users/@me";
 
     // Global variables
     let blacklist = [];
@@ -29,38 +37,43 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             console.log("✅ Fetched Data from JSONBin:", data);
 
-            // Reload only if status or blacklist has changed
             if (lastStatus !== data.record.status || JSON.stringify(blacklist) !== JSON.stringify(data.record.blacklist)) {
                 lastStatus = data.record.status;
                 blacklist = data.record.blacklist || [];
                 updateStatusUI(lastStatus);
                 console.log("🔄 Status or blacklist changed. Updating UI...");
             }
-
         } catch (error) {
             console.error("❌ Error fetching status:", error);
         }
     }
 
-    // --- Update Status UI ---
     function updateStatusUI(status) {
         if (status === "online") {
             statusDisplay.textContent = "✅ Anketos: Atidarytos";
-            statusDisplay.classList.add("status-online");
-            statusDisplay.classList.remove("status-offline");
             statusButton.textContent = "🟢 Uždaryti Anketas";
         } else {
             statusDisplay.textContent = "❌ Anketos: Uždarytos";
-            statusDisplay.classList.add("status-offline");
-            statusDisplay.classList.remove("status-online");
             statusButton.textContent = "🔴 Atidaryti Anketas";
         }
     }
 
-    // --- Periodic Status Check ---
-    setInterval(fetchStatus, 5000); // Check every 5 seconds
+    async function updateJSONBin(newStatus = lastStatus) {
+        try {
+            await fetch(JSONBIN_URL, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": API_KEY,
+                },
+                body: JSON.stringify({ status: newStatus, blacklist })
+            });
+            console.log("✅ Data updated successfully in JSONBin.");
+        } catch (error) {
+            console.error("❌ Error updating JSONBin:", error);
+        }
+    }
 
-    // --- Admin Authentication ---
     function authenticateAdmin() {
         return sessionStorage.getItem("adminAuth") === "true";
     }
@@ -75,105 +88,84 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // --- Blacklist Management ---
-    async function addToBlacklist() {
-        if (!authenticateAdmin()) {
-            requestPassword();
-            return;
-        }
-
-        const newId = prompt("🚫 Enter User ID to blacklist:");
-        if (!newId || blacklist.includes(newId)) {
-            alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
-            return;
-        }
-
-        blacklist.push(newId);
-        await updateJSONBin();
-        alert(`✅ User ID "${newId}" has been blacklisted.`);
-    }
-
-    async function removeFromBlacklist() {
-        if (!authenticateAdmin()) {
-            requestPassword();
-            return;
-        }
-
-        const idToRemove = prompt("❌ Enter User ID to remove from blacklist:");
-        if (!idToRemove || !blacklist.includes(idToRemove)) {
-            alert(`⚠️ User ID "${idToRemove}" is not in the blacklist.`);
-            return;
-        }
-
-        blacklist = blacklist.filter(id => id !== idToRemove);
-        await updateJSONBin();
-        alert(`✅ User ID "${idToRemove}" has been removed.`);
-    }
-
-    // --- Toggle Status ---
     async function toggleStatus() {
         if (!authenticateAdmin()) {
             requestPassword();
             return;
         }
-
-        const newStatus = statusDisplay.textContent.includes("Uždarytos") ? "online" : "offline";
+        const newStatus = lastStatus === "offline" ? "online" : "offline";
         await updateJSONBin(newStatus);
         updateStatusUI(newStatus);
     }
 
-    // --- Update JSONBin ---
-    async function updateJSONBin(newStatus = lastStatus) {
-        try {
-            await fetch(JSONBIN_URL, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Master-Key": API_KEY,
-                },
-                body: JSON.stringify({ status: newStatus, blacklist })
-            });
+    function getStoredUser() {
+        return JSON.parse(localStorage.getItem("discord_user"));
+    }
 
-            console.log("✅ Data updated successfully in JSONBin.");
-        } catch (error) {
-            console.error("❌ Error updating JSONBin:", error);
+    function storeUser(user) {
+        localStorage.setItem("discord_user", JSON.stringify(user));
+    }
+
+    function clearUser() {
+        localStorage.removeItem("discord_user");
+        location.reload();
+    }
+
+    function updateUI(user) {
+        if (user) {
+            profileContainer.innerHTML = `
+                <img src="${user.avatar}" alt="Avatar" width="50">
+                <p>${user.username}</p>
+                <button id="logout">Log Out</button>
+            `;
+            profileContainer.style.display = "block";
+            discordButton.style.display = "none";
+            document.getElementById("logout").addEventListener("click", clearUser);
+        } else {
+            profileContainer.style.display = "none";
+            discordButton.style.display = "block";
         }
     }
 
-    // --- Form Submission ---
-    form.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        const user = JSON.parse(localStorage.getItem("discord_user"));
-        if (!user) {
-            responseMessage.innerText = "❌ Turite prisijungti su Discord prieš pateikiant!";
-            responseMessage.style.color = "red";
-            return;
-        }
-
-        if (lastStatus === "offline") {
-            responseMessage.innerText = "❌ Anketos šiuo metu uždarytos.";
-            responseMessage.style.color = "red";
-            return;
-        }
-
-        const userId = user.id;
-        document.getElementById("username").value = userId;
-
-        if (blacklist.includes(userId)) {
-            responseMessage.innerText = "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!";
-            responseMessage.style.color = "red";
-            return;
-        }
-
-        console.log("✅ Form submitted with user ID:", userId);
+    discordButton.addEventListener("click", function () {
+        console.log("🔵 Discord login button clicked!");
+        const authUrl = `${API_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
+        window.location.href = authUrl;
     });
 
-    // --- Event Listeners ---
-    statusButton.addEventListener("click", toggleStatus);
-    blacklistButton.addEventListener("click", addToBlacklist);
-    removeButton.addEventListener("click", removeFromBlacklist);
+    async function fetchUser(token) {
+        try {
+            const response = await fetch(USER_URL, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const user = await response.json();
+            if (!user.id) {
+                console.error("Invalid user data:", user);
+                return;
+            }
+            user.avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+            storeUser(user);
+            updateUI(user);
+        } catch (error) {
+            console.error("❌ Error fetching user:", error);
+        }
+    }
 
-    // --- Fetch Initial Data ---
+    function extractTokenFromURL() {
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        return params.get("access_token");
+    }
+
+    // Initialization
+    const token = extractTokenFromURL();
+    if (token) {
+        fetchUser(token);
+        window.history.replaceState({}, document.title, REDIRECT_URI);
+    }
+
+    updateUI(getStoredUser());
+    statusButton.addEventListener("click", toggleStatus);
     fetchStatus();
+    setInterval(fetchStatus, 5000);
 });
