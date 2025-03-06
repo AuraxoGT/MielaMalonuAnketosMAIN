@@ -203,90 +203,171 @@ button:hover {
     background-color: #4752C4;
 }
 
+/* Profile Container - Discord Rich Presence Style */
 #profile-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    margin: 15px auto; /* Centers horizontally */
-    padding: 12px;
-    width: 300px;
-    min-height: 140px;
-    background: rgba(54, 57, 63, 0.9);
-    border-radius: 12px;
-    border: 1px solid #36393f;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(5px);
+    gap: 12px;
+    margin: 20px auto;
+    padding: 16px;
+    width: 280px;
+    background: linear-gradient(145deg, rgba(88, 101, 242, 0.15) 0%, rgba(54, 57, 63, 0.95) 100%);
+    border-radius: 8px;
+    border: 1px solid rgba(79, 84, 92, 0.6);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
+    overflow: hidden;
+}
+
+/* Status Animation */
+@keyframes status-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(59, 165, 92, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(59, 165, 92, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 165, 92, 0); }
+}
+
+#profile-container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, 
+        rgba(88, 101, 242, 0.1) 0%,
+        rgba(88, 101, 242, 0.05) 50%,
+        rgba(0, 0, 0, 0.1) 100%);
+    z-index: -1;
+}
+
+/* Avatar with Status Indicator */
+#profile-container .avatar-wrapper {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 8px;
 }
 
 #profile-container img {
-    width: 64px;
-    height: 64px;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
-    border: 2px solid #5865f2;
-    margin-top: 8px;
+    border: 3px solid #5865f2;
     transition: transform 0.3s ease;
 }
 
-#profile-container p {
-    color: white;
-    font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-size: 0.8rem;
-    font-weight: 500;
-    text-align: center;
-    max-width: 90%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* Status Dot */
+#profile-container .status-dot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid #18191c;
+    background: #3ba55c;
+    animation: status-pulse 2s infinite;
 }
 
-#profile-container button {
-    background: #ed4245;
-    color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-size: 0.7rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
+/* User Info Section */
+#profile-container .user-info {
+    text-align: center;
     width: 100%;
+}
+
+#profile-container .username {
+    color: #fff;
+    font-family: 'Ginto Nord', 'Whitney', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+#profile-container .activity {
+    color: #b9bbbe;
+    font-size: 12px;
+    font-weight: 400;
+    margin: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 4px;
 }
 
+/* Logout Button */
+#profile-container button {
+    background: #ed4245;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-family: 'Whitney', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
 #profile-container button:hover {
     background: #ff4b4e;
-    transform: scale(1.05);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(237, 66, 69, 0.3);
 }
 
 #profile-container button::before {
     content: "🚪";
-    font-size: 0.8rem;
+    filter: brightness(1.2);
 }
 
-/* Status indicator */
-#profile-container::after {
-    content: "";
-    width: 10px;
-    height: 10px;
-    background: #3ba55c;
-    border-radius: 50%;
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    border: 2px solid #18191c;
-    box-shadow: 0 0 8px rgba(59, 165, 92, 0.4);
-}
-
-/* Hover effects */
+/* Hover Effects */
 #profile-container:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
 }
 
 #profile-container:hover img {
     transform: rotate(-5deg) scale(1.05);
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    #profile-container {
+        width: 90%;
+        padding: 12px;
+    }
+    
+    #profile-container .username {
+        font-size: 14px;
+    }
+    
+    #profile-container button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}
+
+/* Platform Indicator */
+.platform-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    color: #b9bbbe;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.platform-indicator::before {
+    content: "🖥️"; /* Change to 📱 for mobile */
 }
