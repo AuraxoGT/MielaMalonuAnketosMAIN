@@ -146,8 +146,8 @@ document.addEventListener("DOMContentLoaded", async function () {
                     ],
             timestamp: new Date().toISOString(),
             footer: { text: `Application ID: ${appId}` }
-        }
-    }
+        };
+    
 
     function createActionButtons(appId) {
         const sanitizedId = appId.replace(/[^a-z0-9_-]/gi, "");
