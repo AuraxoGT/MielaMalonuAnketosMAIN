@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", async function () {
-    console.log("✅ DOM fully loaded!");
+    console.log("✅ DOM fully loaded!.");
 
     // Get elements
     const form = document.getElementById("applicationForm");
