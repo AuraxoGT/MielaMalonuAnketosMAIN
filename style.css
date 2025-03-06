@@ -210,7 +210,7 @@ button:hover {
     gap: 8px;
     margin: 15px auto; /* Centers horizontally */
     padding: 12px;
-    width: 100px;
+    width: 300px;
     min-height: 140px;
     background: rgba(54, 57, 63, 0.9);
     border-radius: 12px;
@@ -250,7 +250,7 @@ button:hover {
     font-size: 0.7rem;
     cursor: pointer;
     transition: all 0.2s ease;
-    width: 80%;
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
