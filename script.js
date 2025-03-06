@@ -1,3 +1,60 @@
+// Assuming your admin password is hardcoded or stored elsewhere.
+const adminPassword = "admin123";  // Replace with your admin password
+
+// Admin Panel Elements
+const adminPanel = document.querySelector(".admin-panel");
+const statusButton = document.getElementById("statusButton");
+const blacklistButton = document.getElementById("blacklistButton");
+const removeButton = document.getElementById("removeButton");
+
+// Admin Authentication Function
+function adminAuth() {
+    const password = prompt("Please enter the admin password:");
+    if (password === adminPassword) {
+        sessionStorage.setItem("adminAuthenticated", "true");
+        showAdminPanel();
+    } else {
+        alert("Incorrect password. Access denied.");
+    }
+}
+
+// Check if the admin is authenticated
+function checkAdminAuth() {
+    if (sessionStorage.getItem("adminAuthenticated") === "true") {
+        showAdminPanel();
+    } else {
+        adminAuth();
+    }
+}
+
+// Show the admin panel when authenticated
+function showAdminPanel() {
+    adminPanel.style.display = "flex";
+}
+
+// Event Listeners for Admin Actions
+statusButton.addEventListener("click", function() {
+    alert("Status control feature is activated!");
+    // Implement status change here
+});
+
+blacklistButton.addEventListener("click", function() {
+    const discordID = prompt("Enter Discord ID to add to blacklist:");
+    // Add the Discord ID to the blacklist (this could be a database action)
+    alert(`Discord ID ${discordID} added to blacklist!`);
+});
+
+removeButton.addEventListener("click", function() {
+    const discordID = prompt("Enter Discord ID to remove from blacklist:");
+    // Remove the Discord ID from the blacklist (this could be a database action)
+    alert(`Discord ID ${discordID} removed from blacklist!`);
+});
+
+// Check if admin is authenticated when page loads
+window.onload = function() {
+    checkAdminAuth();
+};
+
 const clientId = "1263389179249692693"; // Replace with your Discord Client ID
 const redirectUri = encodeURIComponent("https://auraxogt.github.io/mmwebtest/"); // Replace with your actual redirect URL
 const authEndpoint = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=identify`;
