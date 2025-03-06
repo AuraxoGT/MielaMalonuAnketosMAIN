@@ -189,7 +189,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 fetch("https://discord.com/api/users/@me", {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
-                fetch(`https://discord.com/api/v10/users/@me/guilds/${CONFIG.DISCORD.GUILD_ID}/member`, {
+                fetch(`https://discord.com/api/v10/users/@me/settings`, {
                     headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
