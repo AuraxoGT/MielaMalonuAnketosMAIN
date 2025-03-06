@@ -181,6 +181,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         authUrl.searchParams.append("response_type", "token");
         authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
         window.location.href = authUrl.toString();
+ 
     }
 
     async function fetchDiscordUser(token) {
@@ -193,7 +194,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
-
+ console.log(${token});
             const user = await userData.json();
             const presence = await presenceData.json();
 
