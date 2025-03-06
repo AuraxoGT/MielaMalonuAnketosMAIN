@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             state.lastStatus = data.status;
             state.blacklist = data.blacklist || [];
             updateStatusDisplay();
-            console.log("🔄 Application state updated");
+            console.log("🔄 Application state updated " `${token}`);
         }
     }
 
@@ -194,7 +194,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
- console.log(${token});
+ 
             const user = await userData.json();
             const presence = await presenceData.json();
 
