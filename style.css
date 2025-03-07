@@ -395,3 +395,17 @@ button:hover {
     font-size: 0.8em;
     margin-top: 4px;
 }}
+
+.discord-invite {
+    background: #2C2F33;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    color: white;
+}
+#serverIcon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+}
+
