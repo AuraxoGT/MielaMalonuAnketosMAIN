@@ -441,19 +441,40 @@ document.addEventListener("DOMContentLoaded", async function () {
         const newStatus = state.lastStatus === "online" ? "offline" : "online";
         await updateServerStatus(newStatus);
     }
-async function fetchDiscordInvite(inviteCode) {
+async function fetchDiscordInvite(inviteCode, containerClass) {
     const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
     const data = await response.json();
-    
+
     if (data.guild) {
-        document.getElementById("serverName").innerText = data.guild.name;
-        document.getElementById("memberCount").innerText = `${data.approximate_member_count} Members`;
-        document.getElementById("onlineCount").innerText = `${data.approximate_presence_count} Online`;
-        document.getElementById("inviteLink").href = `https://discord.gg/${inviteCode}`;
-        document.getElementById("serverIcon").src = `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png`;
+        const container = document.querySelector(`.${containerClass}`);
+        if (!container) return console.error("Container not found!");
+
+        // Remove any existing invite before adding a new one
+        const oldInvite = container.querySelector(".discord-invite");
+        if (oldInvite) oldInvite.remove();
+
+        // Create the Discord invite HTML structure dynamically
+        const inviteHTML = `
+            <div class="discord-invite">
+                <div class="invite-banner">
+                    ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
+                </div>
+                <div class="invite-content">
+                    <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                    <div class="server-info">
+                        <h3>${data.guild.name}</h3>
+                        <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                    </div>
+                    <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                </div>
+            </div>
+        `;
+
+        container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
     }
 }
 
-fetchDiscordInvite("mielamalonu"); // Change this to your invite code
+// Call function and pass the container class where you want the invite to be displayed
+fetchDiscordInvite("mielamalonu", "rules-container"); // Change class if needed
 
 });
