@@ -441,4 +441,19 @@ document.addEventListener("DOMContentLoaded", async function () {
         const newStatus = state.lastStatus === "online" ? "offline" : "online";
         await updateServerStatus(newStatus);
     }
+async function fetchDiscordInvite(inviteCode) {
+    const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+    const data = await response.json();
+    
+    if (data.guild) {
+        document.getElementById("serverName").innerText = data.guild.name;
+        document.getElementById("memberCount").innerText = `${data.approximate_member_count} Members`;
+        document.getElementById("onlineCount").innerText = `${data.approximate_presence_count} Online`;
+        document.getElementById("inviteLink").href = `https://discord.gg/${inviteCode}`;
+        document.getElementById("serverIcon").src = `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png`;
+    }
+}
+
+fetchDiscordInvite("mielamalonu"); // Change this to your invite code
+
 });
