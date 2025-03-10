@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", async function () {
     console.log("✅ DOM fully loaded!");
 
@@ -7,14 +8,11 @@ document.addEventListener("DOMContentLoaded", async function () {
             URL: "https://api.jsonbin.io/v3/b/67cf56438561e97a50e9929a",
             KEY: "$2a$10$bWJWCoiwQNF32RfO4NqJVOwbygKJ5WRVCRcvdGJoRiGCKsmu15mPy"
         },
-        BOTGHOST: {
-            WEBHOOK_URL: "https://api.botghost.com/webhook/1279602479054454814/o8pp3d4kfghsnuiz50ik9",
-            API_KEY: "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041" // Replace with your actual BotGhost API key
-        },
         DISCORD: {
             CLIENT_ID: "1263389179249692693",
             REDIRECT_URI: "https://mielamalonu.xyz",
             SCOPES: ["identify", "guilds.members.read"],
+            WEBHOOK_URL: "https://discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Achvrej1Kr-W-rXqZVibcftwWFn5sMZyhIMSb9E4r975HbQI3tF",
             GUILD_ID: "1325850250027597845"
         }
     };
@@ -33,9 +31,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // State Management
     let state = {
-        blacklist:,
+        blacklist: [],
         lastStatus: null,
-        currentUser: null,
+        currentUser: null, // Modified: Memory-only Discord auth
         updateInterval: null
     };
 
@@ -56,10 +54,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                 headers: { "X-Master-Key": CONFIG.JSONBIN.KEY }
             });
             const data = await response.json();
-
+            
             if (!response.ok) throw new Error("Failed to fetch status");
             updateApplicationState(data.record);
-
+            
         } catch (error) {
             console.error("❌ Status fetch error:", error);
             showErrorMessage("Failed to load application status");
@@ -69,7 +67,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     function updateApplicationState(data) {
         if (state.lastStatus !== data.status || JSON.stringify(state.blacklist) !== JSON.stringify(data.blacklist)) {
             state.lastStatus = data.status;
-            state.blacklist = data.blacklist ||;
+            state.blacklist = data.blacklist || [];
             updateStatusDisplay();
             console.log("🔄 Application state updated");
         }
@@ -87,7 +85,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             validateSubmissionPrerequisites();
             const formData = gatherFormData();
             await submitApplication(formData);
-
+            
         } catch (error) {
             handleSubmissionError(error);
         }
@@ -112,42 +110,69 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     async function submitApplication(data) {
-        try {
-            const payload = {
-                variables: [
-                    { name: "userId", value: data.userId },
-                    { name: "age", value: data.age },
-                    { name: "reason", value: data.reason },
-                    { name: "pl", value: data.pl },
-                    { name: "kl", value: data.kl },
-                    { name: "pc", value: data.pc },
-                    { name: "isp", value: data.isp }
-                ]
-            };
+        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
+        
+        const payload = {
+            username: "📝 Application System",
+            avatar_url: "https://example.com/avatar.png",
+            embeds: [createApplicationEmbed(data, appId)],
+            components: [createActionButtons(appId)]
+        };
 
-            const response = await fetch(CONFIG.BOTGHOST.WEBHOOK_URL, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": CONFIG.BOTGHOST.API_KEY
+        const response = await fetch(CONFIG.DISCORD.WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error("Discord API error");
+        showSuccessMessage("✅ Aplikacija pateikta!");
+        elements.form.reset();
+    }
+
+    function createApplicationEmbed(data, appId) {
+        return {
+            title: "📢 Nauja Aplikacija!",
+            color: 0x000000,
+            fields: [
+                { name: "👤 Asmuo", value: `<@${data.userId}>`, inline: true },
+                { name: "🎂 Metai", value: `**${data.age}**`, inline: true },
+                { name: "📝 Priežastis", value: `**${data.reason}**`, inline: true },
+                { name: "🔫 Pašaudymas", value: `**${data.pl}/10**`, inline: true },
+                { name: "📞 Komunikacija", value: `**${data.kl}/10**`, inline: true },
+                { name: "🖥️ PC Check", value: `**${data.pc}**`, inline: true },
+                { name: "🚫 Ispėjimai", value: `**${data.isp}**`, inline: true }
+            ],
+            timestamp: new Date().toISOString(),
+            footer: { text: `Application ID: ${appId}` }
+        };
+    }
+
+    function createActionButtons(appId) {
+        const sanitizedId = appId.replace(/[^a-z0-9_-]/gi, "");
+        return {
+            type: 1,
+            components: [
+                {
+                    type: 2,
+                    style: 3,
+                    label: "Patvirtinti",
+                    custom_id: `accept_${sanitizedId}`,
+                    emoji: { name: "✅" }
                 },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                console.error("BotGhost API error:", response.status, await response.text());
-                throw new Error("BotGhost API error");
-            }
-            showSuccessMessage("✅ Aplikacija pateikta!");
-            elements.form.reset();
-        } catch (error) {
-            console.error("BotGhost Webhook Error:", error);
-            showErrorMessage("❌ Nepavyko išsiųsti aplikacijos į BotGhost.");
-        }
+                {
+                    type: 2,
+                    style: 4,
+                    label: "Atmesti",
+                    custom_id: `reject_${sanitizedId}`,
+                    emoji: { name: "❌" }
+                }
+            ]
+        };
     }
 
     // ======================
-    // DISCORD INTEGRATION
+    // DISCORD INTEGRATION (MODIFIED)
     // ======================
 
     function handleDiscordAuth() {
@@ -174,14 +199,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             const presence = await presenceData.json();
 
             if (!user.id) throw new Error("Invalid user data");
-
+            
             const status = presence.presence?.status || 'offline';
-            const activities = presence.activities ||;
+            const activities = presence.activities || [];
             const mainActivity = activities.find(a => a.type === 0) || {};
 
             return {
                 ...user,
-                avatar: `https://cdn.discordapp.com/avatars/<span class="math-inline">\{user\.id\}/</span>{user.avatar}.png?size=256`,
+                avatar: `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`,
                 status: status,
                 activities: activities,
                 activity: {
@@ -194,16 +219,16 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         } catch (error) {
             console.error("Discord API error:", error);
-            return { status: 'offline', activities:};
+            return { status: 'offline', activities: [] };
         }
     }
 
     async function updateDiscordPresence() {
         if (!state.currentUser) return;
-
+        
         try {
             const user = await fetchDiscordUser(state.currentUser.accessToken);
-            if (user.status !== state.currentUser.status ||
+            if (user.status !== state.currentUser.status || 
                 JSON.stringify(user.activities) !== JSON.stringify(state.currentUser.activities)) {
                 state.currentUser = { ...user, accessToken: state.currentUser.accessToken };
                 updateUserInterface(state.currentUser);
@@ -214,7 +239,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
-    // UI MANAGEMENT
+    // UI MANAGEMENT (MODIFIED)
     // ======================
 
     function updateUserInterface(user) {
@@ -222,14 +247,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             elements.profileContainer.innerHTML = `
                 <div class="avatar-wrapper">
                     <img src="${user.avatar}" alt="Avatar">
-                    <div class="status-dot <span class="math-inline">\{user\.status\}"\></div\>
-</div\>
-<div class\="user\-info"\>
-<p class\="username"\></span>{user.username}</p>
+                    <div class="status-dot ${user.status}"></div>
+                </div>
+                <div class="user-info">
+                    <p class="username">${user.username}</p>
                     <p class="activity">
-                        ${user.activities.length > 0 ?
-                    `${user.activity.emoji} ${user.activity.name}` :
-                    '📡 No active status'}
+                        ${user.activities.length > 0 ? 
+                            `${user.activity.emoji} ${user.activity.name}` : 
+                            '📡 No active status'}
                     </p>
                     ${user.status === 'dnd' ? '<div class="dnd-banner">Do Not Disturb</div>' : ''}
                 </div>
@@ -246,12 +271,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
-    // ADMIN FUNCTIONS
+    // ADMIN FUNCTIONS (UNCHANGED)
     // ======================
 
     async function addToBlacklist() {
         if (!authenticateAdmin()) return;
-
+        
         const newId = prompt("🚫 Enter User ID to blacklist:");
         if (!newId || state.blacklist.includes(newId)) {
             alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
@@ -294,7 +319,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
-    // UTILITY FUNCTIONS
+    // UTILITY FUNCTIONS (MODIFIED)
     // ======================
 
     function initializeEventListeners() {
@@ -352,9 +377,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                     "Content-Type": "application/json",
                     "X-Master-Key": CONFIG.JSONBIN.KEY,
                 },
-                body: JSON.stringify({
-                    status: newStatus,
-                    blacklist: state.blacklist
+                body: JSON.stringify({ 
+                    status: newStatus, 
+                    blacklist: state.blacklist 
                 })
             });
             console.log("✅ JSONBin updated successfully");
@@ -391,7 +416,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             "Applications closed": "❌ Anketos šiuo metu uždarytos.",
             "User blacklisted": "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!",
         }[error.message] || "❌ Nepavyko išsiųsti aplikacijos.";
-
+        
         showErrorMessage(message);
     }
 
@@ -417,39 +442,40 @@ document.addEventListener("DOMContentLoaded", async function () {
         const newStatus = state.lastStatus === "online" ? "offline" : "online";
         await updateServerStatus(newStatus);
     }
+async function fetchDiscordInvite(inviteCode, containerClass) {
+    const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+    const data = await response.json();
 
-    async function fetchDiscordInvite(inviteCode, containerClass) {
-        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
-        const data = await response.json();
+    if (data.guild) {
+        const container = document.querySelector(`.${containerClass}`);
+        if (!container) return console.error("Container not found!");
 
-        if (data.guild) {
-            const container = document.querySelector(`.${containerClass}`);
-            if (!container) return console.error("Container not found!");
+        // Remove any existing invite before adding a new one
+        const oldInvite = container.querySelector(".discord-invite");
+        if (oldInvite) oldInvite.remove();
 
-            // Remove any existing invite before adding a new one
-            const oldInvite = container.querySelector(".discord-invite");
-            if (oldInvite) oldInvite.remove();
-
-            // Create the Discord invite HTML structure dynamically
-            const inviteHTML = `
-                <div class="discord-invite">
-                    <div class="invite-banner">
-                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/<span class="math-inline">\{data\.guild\.id\}/</span>{data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
-                    </div>
-                    <div class="invite-content">
-                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
-                        <div class="server-info">
-                            <h3>${data.guild.name}</h3>
-                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
-                        </div>
-                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
-                    </div>
+        // Create the Discord invite HTML structure dynamically
+        const inviteHTML = `
+            <div class="discord-invite">
+                <div class="invite-banner">
+                    ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
                 </div>
-            `;
+                <div class="invite-content">
+                    <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                    <div class="server-info">
+                        <h3>${data.guild.name}</h3>
+                        <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                    </div>
+                    <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                </div>
+            </div>
+        `;
 
-            container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
-        }
+        container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
     }
+}
 
-    // Call function and pass the container class where you want the invite to be displayed
-    fetch
+// Call function and pass the container class where you want the invite to be displayed
+fetchDiscordInvite("mielamalonu", "rules-container"); // Change class if needed
+
+});
