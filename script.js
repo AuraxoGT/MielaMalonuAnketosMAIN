@@ -173,10 +173,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 fetch('https://api.botghost.com/webhook/1279602479054454814/rdp0owtzl2rb6fnv3jdfk', {
     method: 'POST',
     mode: 'no-cors',
-    headers: {
-        'Authorization': 'ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041',
-        
-    }
+    headers: {'Authorization': 'ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041'}
 });
 
     // ======================
