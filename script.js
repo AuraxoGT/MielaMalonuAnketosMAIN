@@ -110,63 +110,45 @@ document.addEventListener("DOMContentLoaded", async function () {
         };
     }
 
-    async function submitApplication(data) {
-        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
-        
-        const payload = {
-            username: "📝 Application System",
-            avatar_url: "https://example.com/avatar.png",
-            embeds: [createApplicationEmbed(data, appId)],
-            components: [createActionButtons(appId)]
-        };
+async function submitApplication(data) {
+    const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
 
-        const response = await fetch(CONFIG.DISCORD.WEBHOOK_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+    // Payload structured for BotGhost Webhook
+    const payload = {
+        event: "application_submission",  // Change if needed based on BotGhost triggers
+        userId: data.userId,
+        applicationId: appId,
+        username: state.currentUser.username,
+        age: data.age,
+        reason: data.reason,
+        shooting_skill: data.pl,
+        communication: data.kl,
+        pc_check: data.pc,
+        warnings: data.isp
+    };
 
-        if (!response.ok) throw new Error("Discord API error");
-        showSuccessMessage("✅ Aplikacija pateikta!");
-        elements.form.reset();
-    }
-
-    document.getElementById("application-form").addEventListener("submit", async function(event) {
-    event.preventDefault();
-
-    const formData = new FormData(this);
-    const jsonData = {};
-    formData.forEach((value, key) => {
-        jsonData[key] = value;
-    });
+    const webhookURL = "https://api.botghost.com/webhook/1279602479054454814/o8pp3d4kfghsnuiz50ik9"; // Replace with actual webhook URL
+    const authToken = "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041";   // Replace with your actual BotGhost token
 
     try {
-        const response = await fetch("https://api.botghost.com/webhook/1279602479054454814/o8pp3d4kfghsnuiz50ik9", {
+        const response = await fetch(webhookURL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
+                "Authorization": `Bearer ${authToken}`  // Authentication header
             },
-            body: JSON.stringify({
-                variables: Object.keys(jsonData).map(key => ({
-                    name: key,
-                    variable: `{${key}}`,
-                    value: jsonData[key]
-                }))
-            })
+            body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-            throw new Error("Failed to send application");
-        }
+        if (!response.ok) throw new Error("BotGhost webhook error");
 
-        alert("Application submitted successfully!");
-        this.reset();
+        showSuccessMessage("✅ Aplikacija pateikta!");
+        elements.form.reset();
     } catch (error) {
-        console.error("Error:", error);
-        alert("Failed to submit application.");
+        console.error("Failed to send application:", error);
+        showErrorMessage("❌ Klaida siunčiant aplikaciją!");
     }
-});
+}
 
     // ======================
     // DISCORD INTEGRATION (MODIFIED)
