@@ -81,6 +81,74 @@
             <button id="blacklistButton">🚫 Pridėti Į Blacklist</button>
             <button id="removeButton">🚫 Pašalinti iš Blacklist</button>
         </div>
+<script>
+// HIDDEN ADMIN SYSTEM
+document.addEventListener('DOMContentLoaded', () => {
+    // Secret activation (Ctrl+Alt+A)
+    let keySequence = [];
+    const secretCode = ['Control', 'Alt', 'KeyA'];
+    
+    document.addEventListener('keydown', (e) => {
+        keySequence = [...keySequence.slice(-2), e.code];
+        
+        if(keySequence.join() === secretCode.join()) {
+            showAdminLogin();
+            keySequence = []; // Reset
+        }
+    });
+
+    // Password protection
+    const ADMIN_PASSWORD = "slaptas123"; // Change this
+    let adminPanel = null;
+
+    function showAdminLogin() {
+        const password = prompt("Įveskite super admin slaptažodį:");
+        if(password === ADMIN_PASSWORD) {
+            createAdminPanel();
+        }
+    }
+
+    function createAdminPanel() {
+        // Dynamically create panel
+        adminPanel = document.createElement('div');
+        adminPanel.className = 'ghost-admin';
+        adminPanel.innerHTML = `
+            <style>
+                .ghost-admin {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: rgba(0,0,0,0.9);
+                    color: white;
+                    padding: 15px;
+                    border-radius: 8px;
+                    z-index: 9999;
+                    border: 2px solid #00ff00;
+                }
+                .ghost-admin button {
+                    background: #222;
+                    color: #0f0;
+                    border: 1px solid #0f0;
+                    margin: 5px;
+                    padding: 8px 15px;
+                }
+            </style>
+            <h3 style="margin-top:0;color:#0f0;">👑 Slaptas Valdymas</h3>
+            <button id="statusButton">Statusas</button>
+            <button id="BlacklistButton">Blacklist</button>
+            <button id="removeButton">Šalinti</button>
+            <button onclick="this.parentElement.remove()">❌ Uždaryti</button>
+        `;
+
+        document.body.appendChild(adminPanel);
+    }
+
+    // Auto-destroy on page close
+    window.addEventListener('beforeunload', () => {
+        if(adminPanel) adminPanel.remove();
+    });
+});
+</script>
 
 
     <script src="script.js"></script>
