@@ -4,8 +4,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Configuration
     const CONFIG = {
         JSONBIN: {
-            URL: "https://api.jsonbin.io/v3/b/67c851f6e41b4d34e4a1358b",
-            KEY: "$2a$10$Fhj82wgpsjkF/dgzbqlWN.bvyoK3jeIBkbQm9o/SSzDo9pxNryLi."
+            URL: "https://api.jsonbin.io/v3/b/67cf56438561e97a50e9929a",
+            KEY: "$2a$10$bWJWCoiwQNF32RfO4NqJVOwbygKJ5WRVCRcvdGJoRiGCKsmu15mPy"
         },
         DISCORD: {
             CLIENT_ID: "1263389179249692693",
