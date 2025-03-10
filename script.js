@@ -8,11 +8,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             URL: "https://api.jsonbin.io/v3/b/67cf56438561e97a50e9929a",
             KEY: "$2a$10$bWJWCoiwQNF32RfO4NqJVOwbygKJ5WRVCRcvdGJoRiGCKsmu15mPy"
         },
+        BOTGHOST: {
+            WEBHOOK_URL: "https://api.botghost.com/webhook/1279602479054454814/o8pp3d4kfghsnuiz50ik9",
+            API_KEY: "API_KEY" // Replace with your actual BotGhost API key
+        },
         DISCORD: {
             CLIENT_ID: "1263389179249692693",
             REDIRECT_URI: "https://mielamalonu.xyz",
             SCOPES: ["identify", "guilds.members.read"],
-            WEBHOOK_URL: "https://discord.com/api/webhooks/1346529699081490472/k-O-v4wKDiUjsj1w-Achvrej1Kr-W-rXqZVibcftwWFn5sMZyhIMSb9E4r975HbQI3tF",
             GUILD_ID: "1325850250027597845"
         }
     };
@@ -54,10 +57,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                 headers: { "X-Master-Key": CONFIG.JSONBIN.KEY }
             });
             const data = await response.json();
-            
+
             if (!response.ok) throw new Error("Failed to fetch status");
             updateApplicationState(data.record);
-            
+
         } catch (error) {
             console.error("❌ Status fetch error:", error);
             showErrorMessage("Failed to load application status");
@@ -85,7 +88,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             validateSubmissionPrerequisites();
             const formData = gatherFormData();
             await submitApplication(formData);
-            
+
         } catch (error) {
             handleSubmissionError(error);
         }
@@ -110,68 +113,40 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     async function submitApplication(data) {
-        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
-        
-        const payload = {
-            username: "📝 Application System",
-            avatar_url: "https://example.com/avatar.png",
-            embeds: [createApplicationEmbed(data, appId)],
-            components: [createActionButtons(appId)]
-        };
+        try {
+            const payload = {
+                variables: [
+                    { name: "userId", value: data.userId },
+                    { name: "age", value: data.age },
+                    { name: "reason", value: data.reason },
+                    { name: "pl", value: data.pl },
+                    { name: "kl", value: data.kl },
+                    { name: "pc", value: data.pc },
+                    { name: "isp", value: data.isp }
+                ]
+            };
 
-        const response = await fetch(CONFIG.DISCORD.WEBHOOK_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error("Discord API error");
-        showSuccessMessage("✅ Aplikacija pateikta!");
-        elements.form.reset();
-    }
-
-    function createApplicationEmbed(data, appId) {
-        return {
-            title: "📢 Nauja Aplikacija!",
-            color: 0x000000,
-            fields: [
-                { name: "👤 Asmuo", value: `<@${data.userId}>`, inline: true },
-                { name: "🎂 Metai", value: `**${data.age}**`, inline: true },
-                { name: "📝 Priežastis", value: `**${data.reason}**`, inline: true },
-                { name: "🔫 Pašaudymas", value: `**${data.pl}/10**`, inline: true },
-                { name: "📞 Komunikacija", value: `**${data.kl}/10**`, inline: true },
-                { name: "🖥️ PC Check", value: `**${data.pc}**`, inline: true },
-                { name: "🚫 Ispėjimai", value: `**${data.isp}**`, inline: true }
-            ],
-            timestamp: new Date().toISOString(),
-            footer: { text: `Application ID: ${appId}` }
-        };
-    }
-
-    function createActionButtons(appId) {
-        const sanitizedId = appId.replace(/[^a-z0-9_-]/gi, "");
-        return {
-            type: 1,
-            components: [
-                {
-                    type: 2,
-                    style: 3,
-                    label: "Patvirtinti",
-                    custom_id: `accept_${sanitizedId}`,
-                    emoji: { name: "✅" }
+            const response = await fetch(CONFIG.BOTGHOST.WEBHOOK_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": CONFIG.BOTGHOST.API_KEY
                 },
-                {
-                    type: 2,
-                    style: 4,
-                    label: "Atmesti",
-                    custom_id: `reject_${sanitizedId}`,
-                    emoji: { name: "❌" }
-                }
-            ]
-        };
-    }
-});
+                body: JSON.stringify(payload)
+            });
 
+            if (!response.ok) throw new Error("BotGhost API error");
+            showSuccessMessage("✅ Aplikacija pateikta!");
+            elements.form.reset();
+        } catch (error) {
+            console.error("BotGhost Webhook Error:", error);
+            showErrorMessage("❌ Nepavyko išsiųsti aplikacijos į BotGhost.");
+        }
+    }
+
+    // ... (rest of the code - Discord integration, UI management, admin functions, utility functions)
+
+});
     // ======================
     // DISCORD INTEGRATION (MODIFIED)
     // ======================
