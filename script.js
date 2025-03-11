@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     };
 
     try {
-        const response = await fetch("https://corsproxy.io/?https://api.botghost.com/webhook/1279602479054454814/o8pp3d4kfghsnuiz50ik9", {
+        const response = await fetch("https://botghost-proxy.onrender.com/send-to-botghost", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
