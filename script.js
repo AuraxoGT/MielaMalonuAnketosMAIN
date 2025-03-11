@@ -132,7 +132,8 @@ document.addEventListener("DOMContentLoaded", async function () {
                 "Content-Type": "application/json",
                 "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            mode: 'no-cors'
         });
 
         if (!response.ok) throw new Error("BotGhost API error");
