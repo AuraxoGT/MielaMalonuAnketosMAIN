@@ -136,11 +136,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
 
         if (!response.ok) throw new Error("BotGhost API error");
-        showSuccessMessage("✅ Aplikacija pateikta per BotGhost!");
+        showSuccessMessage("✅ Aplikacija pateikta!");
         elements.form.reset();
     } catch (error) {
         console.error("BotGhost webhook error:", error);
-        showErrorMessage("❌ Nepavyko išsiųsti aplikacijos per BotGhost.");
+        showErrorMessage("❌ Nepavyko išsiųsti aplikacijos bandykite dar karta, jei nepavyks susisiekite su AuraxoGT.");
     }
 }
 
