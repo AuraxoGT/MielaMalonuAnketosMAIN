@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     const payload = {
         variables: [
-            { name: "userId", variable: "{event_userId}", value: `<@${data.userId}>` },
+            { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
             { name: "age", variable: "{event_age}", value: `${data.age}` },
             { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
             { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
