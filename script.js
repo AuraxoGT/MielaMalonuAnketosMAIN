@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     };
 
     try {
-        const response = await fetch("https://botghost-proxy.onrender.com", {
+        const response = await fetch("https://proxy-sxyf.onrender.com", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
