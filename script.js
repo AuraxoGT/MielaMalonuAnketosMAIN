@@ -109,67 +109,41 @@ document.addEventListener("DOMContentLoaded", async function () {
         };
     }
 
-    async function submitApplication(data) {
-        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
-        
-        const payload = {
-            username: "📝 Application System",
-            avatar_url: "https://example.com/avatar.png",
-            embeds: [createApplicationEmbed(data, appId)],
-            components: [createActionButtons(appId)]
-        };
+   async function submitApplication(data) {
+    const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
 
-        const response = await fetch(CONFIG.DISCORD.WEBHOOK_URL, {
+    const payload = {
+        variables: [
+            { name: "userId", variable: "{event_userId}", value: `<@${data.userId}>` },
+            { name: "age", variable: "{event_age}", value: `${data.age}` },
+            { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
+            { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
+            { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
+            { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
+            { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
+            { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
+        ]
+    };
+
+    try {
+        const response = await fetch("https://api.botghost.com/webhook/1279602479054454814/o8pp3d4kfghsnuiz50ik9", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
+            },
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) throw new Error("Discord API error");
-        showSuccessMessage("✅ Aplikacija pateikta!");
+        if (!response.ok) throw new Error("BotGhost API error");
+        showSuccessMessage("✅ Aplikacija pateikta per BotGhost!");
         elements.form.reset();
+    } catch (error) {
+        console.error("BotGhost webhook error:", error);
+        showErrorMessage("❌ Nepavyko išsiųsti aplikacijos per BotGhost.");
     }
+}
 
-    function createApplicationEmbed(data, appId) {
-        return {
-            title: "📢 Nauja Aplikacija!",
-            color: 0x000000,
-            fields: [
-                { name: "👤 Asmuo", value: `<@${data.userId}>`, inline: true },
-                { name: "🎂 Metai", value: `**${data.age}**`, inline: true },
-                { name: "📝 Priežastis", value: `**${data.reason}**`, inline: true },
-                { name: "🔫 Pašaudymas", value: `**${data.pl}/10**`, inline: true },
-                { name: "📞 Komunikacija", value: `**${data.kl}/10**`, inline: true },
-                { name: "🖥️ PC Check", value: `**${data.pc}**`, inline: true },
-                { name: "🚫 Ispėjimai", value: `**${data.isp}**`, inline: true }
-            ],
-            timestamp: new Date().toISOString(),
-            footer: { text: `Application ID: ${appId}` }
-        };
-    }
-
-    function createActionButtons(appId) {
-        const sanitizedId = appId.replace(/[^a-z0-9_-]/gi, "");
-        return {
-            type: 1,
-            components: [
-                {
-                    type: 2,
-                    style: 3,
-                    label: "Patvirtinti",
-                    custom_id: `accept_${sanitizedId}`,
-                    emoji: { name: "✅" }
-                },
-                {
-                    type: 2,
-                    style: 4,
-                    label: "Atmesti",
-                    custom_id: `reject_${sanitizedId}`,
-                    emoji: { name: "❌" }
-                }
-            ]
-        };
-    }
 
     // ======================
     // DISCORD INTEGRATION (MODIFIED)
