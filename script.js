@@ -153,7 +153,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         if (!response.ok) throw new Error("BotGhost API error");
         showSuccessMessage("✅ Aplikacija pateikta!");
-         alert(`✅ Aplikacija pateikta!`);
         elements.form.reset();
     } catch (error) {
         console.error("BotGhost webhook error:", error);
