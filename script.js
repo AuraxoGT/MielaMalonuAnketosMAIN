@@ -77,19 +77,35 @@ document.addEventListener("DOMContentLoaded", async function () {
     // FORM HANDLING
     // ======================
 
-    async function handleFormSubmit(event) {
-        event.preventDefault();
-        clearMessages();
+   async function handleFormSubmit(event) {
+    event.preventDefault();
+    clearMessages();
 
-        try {
-            validateSubmissionPrerequisites();
-            const formData = gatherFormData();
-            await submitApplication(formData);
-            
-        } catch (error) {
-            handleSubmissionError(error);
-        }
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true; // Disable to prevent multiple clicks
+    submitButton.textContent = "Pateikiama..."; // Change text while processing
+
+    try {
+        validateSubmissionPrerequisites();
+        const formData = gatherFormData();
+        await submitApplication(formData);
+
+        submitButton.textContent = "Pateikta!"; // Change text after success
+        setTimeout(() => {
+            submitButton.textContent = "Pateikti"; // Reset text after 3 seconds
+            submitButton.disabled = false;
+        }, 3000);
+
+    } catch (error) {
+        handleSubmissionError(error);
+        submitButton.textContent = "Bandykite dar kartą"; // Change text on failure
+        setTimeout(() => {
+            submitButton.textContent = "Pateikti"; // Reset text after 3 seconds
+            submitButton.disabled = false;
+        }, 3000);
     }
+}
+
 
     function validateSubmissionPrerequisites() {
         if (!state.currentUser) throw new Error("Not authenticated");
