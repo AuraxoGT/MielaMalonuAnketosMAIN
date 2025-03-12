@@ -417,11 +417,11 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     function updateStatusDisplay() {
         if (state.lastStatus === "online") {
-            elements.statusDisplay.textContent = "✅ Anketos: Atidarytos";
+            elements.statusDisplay.textContent = "✅ Atidaryta ✅";
             elements.statusDisplay.className = "status-online";
             elements.statusButton.textContent = "🟢 Uždaryti Anketas";
         } else {
-            elements.statusDisplay.textContent = "❌ Anketos: Uždarytos";
+            elements.statusDisplay.textContent = "❌ Uždaryta ❌";
             elements.statusDisplay.className = "status-offline";
             elements.statusButton.textContent = "🔴 Atidaryti Anketas";
         }
