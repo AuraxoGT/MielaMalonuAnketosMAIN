@@ -122,6 +122,7 @@ async function validateUserRole() {
 
         if (data.hasRole) {
            showErrorMessage("Jau esate pateikes anketa");
+           throw error
         }
     } catch (error) {
         showErrorMessage(error.message);
