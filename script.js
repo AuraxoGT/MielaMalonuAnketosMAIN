@@ -77,55 +77,77 @@ document.addEventListener("DOMContentLoaded", async function () {
     // FORM HANDLING
     // ======================
 
-   async function handleFormSubmit(event) {
+  async function handleFormSubmit(event) {
     event.preventDefault();
     clearMessages();
 
     const submitButton = event.target.querySelector('button[type="submit"]');
-    submitButton.disabled = true; // Disable to prevent multiple clicks
-    submitButton.textContent = "Pateikiama..."; // Change text while processing
+    submitButton.disabled = true;
+    submitButton.textContent = "Pateikiama...";
 
     try {
+        await validateUserRole(); // Check role before proceeding
         validateSubmissionPrerequisites();
         const formData = gatherFormData();
         await submitApplication(formData);
 
-        submitButton.textContent = "Pateikta!"; // Change text after success
+        submitButton.textContent = "Pateikta!";
         setTimeout(() => {
-            submitButton.textContent = "Pateikti"; // Reset text after 3 seconds
+            submitButton.textContent = "Pateikti";
             submitButton.disabled = false;
         }, 3000);
 
     } catch (error) {
         handleSubmissionError(error);
-        submitButton.textContent = "Bandykite dar kartą"; // Change text on failure
+        submitButton.textContent = "Bandykite dar kartą";
         setTimeout(() => {
-            submitButton.textContent = "Pateikti"; // Reset text after 3 seconds
+            submitButton.textContent = "Pateikti";
             submitButton.disabled = false;
         }, 3000);
     }
 }
 
+async function validateUserRole() {
+    try {
+        const response = await fetch("https://mmapi.onrender.com/api/check-role", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ userId: state.currentUser.id })
+        });
 
-    function validateSubmissionPrerequisites() {
-        if (!state.currentUser) throw new Error("Not authenticated");
-        if (state.lastStatus === "offline") throw new Error("Applications closed");
-        if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
+        if (!response.ok) throw new Error("Server error while checking role");
+        const data = await response.json();
+
+        if (data.hasRole) {
+            throw new Error("Turite rolę 'Laukiantis Atsakymo' - negalite pateikti aplikacijos.");
+        }
+    } catch (error) {
+        showErrorMessage(error.message);
+        throw error; // Prevents form submission
     }
+}
 
-    function gatherFormData() {
-        return {
-            userId: state.currentUser.id,
-            age: document.getElementById("age").value.trim(),
-            reason: document.getElementById("whyJoin").value.trim(),
-            pl: document.getElementById("pl").value.trim(),
-            kl: document.getElementById("kl").value.trim(),
-            pc: document.getElementById("pc").value.trim(),
-            isp: document.getElementById("isp").value.trim()
-        };
-    }
+function validateSubmissionPrerequisites() {
+    if (!state.currentUser) throw new Error("Not authenticated");
+    if (state.lastStatus === "offline") throw new Error("Applications closed");
+    if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
+}
 
-   async function submitApplication(data) {
+function gatherFormData() {
+    return {
+        userId: state.currentUser.id,
+        age: document.getElementById("age").value.trim(),
+        reason: document.getElementById("whyJoin").value.trim(),
+        pl: document.getElementById("pl").value.trim(),
+        kl: document.getElementById("kl").value.trim(),
+        pc: document.getElementById("pc").value.trim(),
+        isp: document.getElementById("isp").value.trim()
+    };
+}
+
+async function submitApplication(data) {
     const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
 
     const payload = {
@@ -156,10 +178,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         elements.form.reset();
     } catch (error) {
         console.error("BotGhost webhook error:", error);
-        showErrorMessage("❌ Nepavyko išsiųsti aplikacijos bandykite dar karta, jei nepavyks susisiekite su AuraxoGT.");
+        showErrorMessage("❌ Nepavyko išsiųsti aplikacijos, bandykite dar kartą. Jei nepavyks, susisiekite su AuraxoGT.");
     }
 }
-
 
     // ======================
     // DISCORD INTEGRATION (MODIFIED)
