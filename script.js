@@ -120,10 +120,7 @@ async function validateUserRole() {
         if (!response.ok) throw new Error("Server error while checking role");
         const data = await response.json();
 
-        if (data.hasRole) {
-           showErrorMessage("Jau esate pateikes anketa");
-           return false;
-        }
+        if (data.hasRole) throw new Error("LA")
     } catch (error) {
         showErrorMessage(error.message);
         throw error; // Prevents form submission
@@ -427,6 +424,7 @@ async function submitApplication(data) {
             "Not authenticated": "❌ Turite prisijungti su Discord prieš pateikiant! (Jei esate prisijunge atsijunkite ir prisijunkite iš naujo)",
             "Applications closed": "❌ Anketos šiuo metu uždarytos.",
             "User blacklisted": "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!",
+            "LA": "🚫 Jau pateikėte anketą!",
         }[error.message] || "❌ Nepavyko išsiųsti aplikacijos.";
         
         showErrorMessage(message);
