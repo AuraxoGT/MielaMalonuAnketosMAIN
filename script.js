@@ -77,55 +77,60 @@ document.addEventListener("DOMContentLoaded", async function () {
     // FORM HANDLING
     // ======================
 
-   async function handleFormSubmit(event) {
+ async function handleFormSubmit(event) {
     event.preventDefault();
     clearMessages();
 
     const submitButton = event.target.querySelector('button[type="submit"]');
-    submitButton.disabled = true; // Disable to prevent multiple clicks
-    submitButton.textContent = "Pateikiama..."; // Change text while processing
+    submitButton.disabled = true;
+    submitButton.textContent = "Pateikiama...";
 
     try {
         validateSubmissionPrerequisites();
+
+        // 🔥 Check if the user has the "Laukiantis Atsakymo" role
+        const hasRequiredRole = await checkUserRole(state.currentUser.id, "Laukiantis Atsakymo");
+        if (!hasRequiredRole) throw new Error("❌ Jūs neturite teisės pateikti aplikacijos!");
+
+        // If the user has the role, continue with submission
         const formData = gatherFormData();
         await submitApplication(formData);
 
-        submitButton.textContent = "Pateikta!"; // Change text after success
+        submitButton.textContent = "Pateikta!";
         setTimeout(() => {
-            submitButton.textContent = "Pateikti"; // Reset text after 3 seconds
+            submitButton.textContent = "Pateikti";
             submitButton.disabled = false;
         }, 3000);
 
     } catch (error) {
         handleSubmissionError(error);
-        submitButton.textContent = "Bandykite dar kartą"; // Change text on failure
+        submitButton.textContent = "Bandykite dar kartą";
         setTimeout(() => {
-            submitButton.textContent = "Pateikti"; // Reset text after 3 seconds
+            submitButton.textContent = "Pateikti";
             submitButton.disabled = false;
         }, 3000);
     }
 }
 
+function validateSubmissionPrerequisites() {
+    if (!state.currentUser) throw new Error("Not authenticated");
+    if (state.lastStatus === "offline") throw new Error("Applications closed");
+    if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
+}
 
-    function validateSubmissionPrerequisites() {
-        if (!state.currentUser) throw new Error("Not authenticated");
-        if (state.lastStatus === "offline") throw new Error("Applications closed");
-        if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
-    }
+function gatherFormData() {
+    return {
+        userId: state.currentUser.id,
+        age: document.getElementById("age").value.trim(),
+        reason: document.getElementById("whyJoin").value.trim(),
+        pl: document.getElementById("pl").value.trim(),
+        kl: document.getElementById("kl").value.trim(),
+        pc: document.getElementById("pc").value.trim(),
+        isp: document.getElementById("isp").value.trim()
+    };
+}
 
-    function gatherFormData() {
-        return {
-            userId: state.currentUser.id,
-            age: document.getElementById("age").value.trim(),
-            reason: document.getElementById("whyJoin").value.trim(),
-            pl: document.getElementById("pl").value.trim(),
-            kl: document.getElementById("kl").value.trim(),
-            pc: document.getElementById("pc").value.trim(),
-            isp: document.getElementById("isp").value.trim()
-        };
-    }
-
-   async function submitApplication(data) {
+async function submitApplication(data) {
     const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
 
     const payload = {
@@ -157,6 +162,35 @@ document.addEventListener("DOMContentLoaded", async function () {
     } catch (error) {
         console.error("BotGhost webhook error:", error);
         showErrorMessage("❌ Nepavyko išsiųsti aplikacijos bandykite dar karta, jei nepavyks susisiekite su AuraxoGT.");
+    }
+}
+
+// 🔥 New function to check if the user has the required role
+async function checkUserRole(userId, requiredRoleName) {
+    try {
+        const response = await fetch("https://api.cookie-api.com/api/discord/user-info", {
+            method: "POST",
+            headers: {
+                "Authorization": "YOUR_API_KEY", // 🔥 Replace with actual API key
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                bot_token: "MTI3OTYwMjQ3OTA1NDQ1NDgxNA.GFIols.48Vs3ZWopSb8DTe2y5xRm-YoaPnFiCkoIs_hQE", // 🔥 Replace with actual bot token
+                guild_id: "1325850250027597845",   // 🔥 Replace with actual Discord server ID
+                user_id: userId
+            })
+        });
+
+        if (!response.ok) throw new Error("❌ Nepavyko gauti vartotojo duomenų!");
+
+        const userData = await response.json();
+        const userRoles = userData.roles || [];
+
+        // Check if the user has the required role
+        return userRoles.some(role => role.name === requiredRoleName);
+    } catch (error) {
+        console.error("Klaida tikrinant rolę:", error);
+        return false;
     }
 }
 
