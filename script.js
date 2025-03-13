@@ -122,6 +122,7 @@ async function validateUserRole() {
 
         if (data.hasRole) {
             throw new Error("Turite rolę 'Laukiantis Atsakymo' - negalite pateikti aplikacijos.");
+           showErrorMessage("Jau esate pateikes anketa");
         }
     } catch (error) {
         showErrorMessage(error.message);
