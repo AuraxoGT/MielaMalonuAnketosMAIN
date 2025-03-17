@@ -425,7 +425,7 @@ async function submitApplication(data) {
             "Applications closed": "❌ Anketos šiuo metu uždarytos.",
             "User blacklisted": "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!",
             "LA": "🚫 Jau pateikėte anketą!",
-        }[error.message] || "❌ Nepavyko išsiųsti aplikacijos.";
+        }[error.message] || "❌ Nepavyko išsiųsti aplikacijos. (Įsitikinkite kad prisijungėte su Discord";
         
         showErrorMessage(message);
     }
