@@ -21,9 +21,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     const elements = {
         form: document.getElementById("applicationForm"),
         statusDisplay: document.getElementById("statusDisplay"),
-        statusButton: document.getElementById("statusButton"),
-        blacklistButton: document.getElementById("blacklistButton"),
-        removeButton: document.getElementById("removeButton"),
         discordButton: document.getElementById("discord-login"),
         profileContainer: document.getElementById("profile-container"),
         responseMessage: document.createElement("p")
@@ -333,9 +330,6 @@ async function submitApplication(data) {
 
     function initializeEventListeners() {
         elements.form.addEventListener("submit", handleFormSubmit);
-        elements.statusButton.addEventListener("click", toggleApplicationStatus);
-        elements.blacklistButton.addEventListener("click", addToBlacklist);
-        elements.removeButton.addEventListener("click", removeFromBlacklist);
         elements.discordButton.addEventListener("click", handleDiscordAuth);
     }
 
