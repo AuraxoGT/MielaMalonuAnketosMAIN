@@ -70,6 +70,20 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
+    // STATUS DISPLAY FUNCTION
+    // ======================
+
+    function updateStatusDisplay() {
+        if (state.lastStatus === "offline") {
+            elements.statusDisplay.textContent = "Applications are closed.";
+            elements.statusDisplay.style.color = "red";
+        } else {
+            elements.statusDisplay.textContent = "Applications are open!";
+            elements.statusDisplay.style.color = "green";
+        }
+    }
+
+    // ======================
     // FORM HANDLING
     // ======================
 
@@ -306,11 +320,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (error.message === "LA") {
             showErrorMessage("❌ Jau esate pateikes anketą");
         } else if (error.message === "Applications closed") {
-            showErrorMessage("❌ Anketos uždaryta.");
+            showErrorMessage("❌ Anketos Uždarytos.");
         } else if (error.message === "User blacklisted") {
-            showErrorMessage("❌ Vartotojas užblokuotas.");
+            showErrorMessage("❌ Esate blackliste.");
         } else {
-            showErrorMessage("❌ Bežinoma klaida.");
+            showErrorMessage("❌ Unexpected error occurred.");
         }
     }
 
