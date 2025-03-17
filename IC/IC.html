@@ -1,1 +1,32 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Miela Malonu</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
 
+<body>
+    <!-- Display Data Table -->
+    <div class="data-container">
+        <table id="data-table"> 
+<div class="search-container">
+        <input type="text" id="searchInput" placeholder="🔍 Ieškoti pagal bet kokį lauką..." onkeyup="filterTable()">
+    </div>
+            <thead>
+                <tr>
+                    <th>Vartotojas</th>
+                    <th>Vardas</th>
+                    <th>Pavardė</th>
+                    <th>Steam Nick</th>
+                    <th>Steam Nuoroda</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
