@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", async function () {
     console.log("✅ DOM fully loaded!");
 
@@ -145,18 +146,18 @@ function gatherFormData() {
 }
 
 async function submitApplication(data) {
-    const appId = ${state.currentUser.id.slice(0, 16)}-${Date.now()};
+    const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
 
     const payload = {
         variables: [
-            { name: "userId", variable: "{event_userId}", value: ${data.userId} },
-            { name: "age", variable: "{event_age}", value: ${data.age} },
-            { name: "reason", variable: "{event_reason}", value: ${data.reason} },
-            { name: "pl", variable: "{event_pl}", value: ${data.pl}/10 },
-            { name: "kl", variable: "{event_kl}", value: ${data.kl}/10 },
-            { name: "pc", variable: "{event_pc}", value: ${data.pc} },
-            { name: "isp", variable: "{event_isp}", value: ${data.isp} },
-            { name: "applicationId", variable: "{event_appId}", value: ${appId} }
+            { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
+            { name: "age", variable: "{event_age}", value: `${data.age}` },
+            { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
+            { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
+            { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
+            { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
+            { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
+            { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
         ]
     };
 
@@ -196,10 +197,10 @@ async function submitApplication(data) {
         try {
             const [userData, presenceData] = await Promise.all([
                 fetch("https://discord.com/api/users/@me", {
-                    headers: { Authorization: Bearer ${token} }
+                    headers: { Authorization: `Bearer ${token}` }
                 }),
-                fetch(https://discord.com/api/v10/users/@me/guilds/${CONFIG.DISCORD.GUILD_ID}/member, {
-                    headers: { Authorization: Bearer ${token} }
+                fetch(`https://discord.com/api/v10/users/@me/guilds/${CONFIG.DISCORD.GUILD_ID}/member`, {
+                    headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
 
@@ -214,7 +215,7 @@ async function submitApplication(data) {
 
             return {
                 ...user,
-                avatar: https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256,
+                avatar: `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`,
                 status: status,
                 activities: activities,
                 activity: {
@@ -252,7 +253,7 @@ async function submitApplication(data) {
 
     function updateUserInterface(user) {
         if (user) {
-            elements.profileContainer.innerHTML = 
+            elements.profileContainer.innerHTML = `
                 <div class="avatar-wrapper">
                     <img src="${user.avatar}" alt="Avatar">
                     <div class="status-dot ${user.status}"></div>
@@ -261,13 +262,13 @@ async function submitApplication(data) {
                     <p class="username">${user.username}</p>
                     <p class="activity">
                         ${user.activities.length > 0 ? 
-                            ${user.activity.emoji} ${user.activity.name} : 
+                            `${user.activity.emoji} ${user.activity.name}` : 
                             '📡 No active status'}
                     </p>
                     ${user.status === 'dnd' ? '<div class="dnd-banner">Do Not Disturb</div>' : ''}
                 </div>
                 <button id="logout">Log Out</button>
-            ;
+            `;
             document.getElementById("logout").addEventListener("click", handleLogout);
         }
         toggleAuthElements(!!user);
@@ -287,13 +288,13 @@ async function submitApplication(data) {
         
         const newId = prompt("🚫 Enter User ID to blacklist:");
         if (!newId || state.blacklist.includes(newId)) {
-            alert(⚠️ User ID "${newId}" is invalid or already blacklisted.);
+            alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
             return;
         }
 
         state.blacklist.push(newId);
         await updateJSONBin();
-        alert(✅ User ID "${newId}" has been blacklisted.);
+        alert(`✅ User ID "${newId}" has been blacklisted.`);
     }
 
     async function removeFromBlacklist() {
@@ -301,13 +302,13 @@ async function submitApplication(data) {
 
         const idToRemove = prompt("❌ Enter User ID to remove from blacklist:");
         if (!idToRemove || !state.blacklist.includes(idToRemove)) {
-            alert(⚠️ User ID "${idToRemove}" is not in the blacklist.);
+            alert(`⚠️ User ID "${idToRemove}" is not in the blacklist.`);
             return;
         }
 
         state.blacklist = state.blacklist.filter(id => id !== idToRemove);
         await updateJSONBin();
-        alert(✅ User ID "${idToRemove}" has been removed.);
+        alert(`✅ User ID "${idToRemove}" has been removed.`);
     }
 
     function authenticateAdmin() {
@@ -400,7 +401,7 @@ async function submitApplication(data) {
     function sanitizeInput(input) {
         return String(input)
             .substring(0, 1024)
-            .replace(/[@#*_~]/g, "");
+            .replace(/[@#`*_~]/g, "");
     }
 
     function showSuccessMessage(message) {
@@ -452,11 +453,11 @@ async function submitApplication(data) {
         await updateServerStatus(newStatus);
     }
 async function fetchDiscordInvite(inviteCode, containerClass) {
-    const response = await fetch(https://discord.com/api/v9/invites/${inviteCode}?with_counts=true);
+    const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
     const data = await response.json();
 
     if (data.guild) {
-        const container = document.querySelector(.${containerClass});
+        const container = document.querySelector(`.${containerClass}`);
         if (!container) return console.error("Container not found!");
 
         // Remove any existing invite before adding a new one
@@ -464,10 +465,10 @@ async function fetchDiscordInvite(inviteCode, containerClass) {
         if (oldInvite) oldInvite.remove();
 
         // Create the Discord invite HTML structure dynamically
-        const inviteHTML = 
+        const inviteHTML = `
             <div class="discord-invite">
                 <div class="invite-banner">
-                    ${data.guild.banner ? <img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner"> : ""}
+                    ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
                 </div>
                 <div class="invite-content">
                     <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
@@ -478,7 +479,7 @@ async function fetchDiscordInvite(inviteCode, containerClass) {
                     <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
                 </div>
             </div>
-        ;
+        `;
 
         container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
     }
