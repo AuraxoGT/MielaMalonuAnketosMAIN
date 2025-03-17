@@ -1,0 +1,523 @@
+body {
+    font-family: 'Poppins', Arial, sans-serif;
+    background: rgba(0, 0, 0, 0.6) url('https://cdn.discordapp.com/attachments/1340789491564281917/1340794718526767195/1739740774386.gif?ex=67d9e363&is=67d891e3&hm=a82f7b52b6f6ced8af2f558aa9ab846653546a788789efe87227dbb5f04c8438&');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: white;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+/* Main Layout */
+.main-container {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    max-width: 1200px;
+    width: 100%;
+}
+
+/* Glassmorphism Containers */
+.container, .rules-container {
+    background: rgba(40, 40, 40, 0.5);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    padding: 25px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Application Form Container */
+.container {
+    width: 600px;
+    text-align: center;
+}
+
+/* Rules Container */
+.rules-container {
+    width: 400px;
+    color: white;
+}
+
+/* Rules List Styling */
+.rules-list {
+    text-align: left;
+    padding: 0 20px;
+    list-style-type: none;
+}
+
+.rules-list li {
+    margin-bottom: 15px;
+    font-size: 14px;
+    padding-left: 1.5em;
+    text-indent: -1.5em;
+}
+
+/* Form Elements */
+input, textarea, select {
+    width: 100%;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    outline: none;
+    font-size: 16px;
+    transition: 0.3s ease-in-out;
+    resize: none;
+}
+
+textarea {
+    min-height: 80px;
+}
+
+input:focus, textarea:focus, select:focus {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(72, 255, 72, 0.6);
+}
+
+/* Button Styles */
+button {
+    background: linear-gradient(90deg, #4CAF50, #00ff88);
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease-in-out;
+    width: 100%;
+    margin-top: 15px;
+}
+
+button:hover {
+    background: linear-gradient(90deg, #00ff88, #4CAF50);
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.7);
+    transform: scale(1.05);
+}
+
+/* Admin Panel (Updated) */
+.admin-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    text-align: center;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+    align-items: center; /* Center buttons */
+    gap: 10px; /* Space between buttons */
+    background: rgba(0, 0, 0, 0.6);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Admin Panel Buttons */
+.admin-panel button {
+    width: 180px; /* Consistent button width */
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #333;
+    color: white;
+    transition: 0.3s;
+}
+
+.admin-panel button:hover {
+    background-color: #555;
+}
+
+/* Status Display */
+#statusDisplay {
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 14px;
+    background: rgba(255, 0, 0, 0.3);
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.status-online {
+    background: rgba(0, 255, 0, 0.3) !important;
+}
+
+.status-offline {
+    background: rgba(255, 0, 0, 0.3) !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .main-container {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .container, .rules-container {
+        width: 90%;
+        max-width: 600px;
+    }
+
+    .admin-panel {
+        position: static;
+        width: 100%;
+        margin-top: 20px;
+    }
+
+    .admin-panel button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 400px) {
+    .container {
+        padding: 20px;
+    }
+}
+
+.discord-auth-container {
+    margin-bottom: 20px;
+}
+
+#discord-login {
+    background-color: #5865F2;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+#discord-login:hover {
+    background-color: #4752C4;
+}
+
+/* Profile Container - Discord Rich Presence Style */
+#profile-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin: 20px auto;
+    padding: 16px;
+    width: 280px;
+    background: linear-gradient(145deg, rgba(88, 101, 242, 0.15) 0%, rgba(54, 57, 63, 0.95) 100%);
+    border-radius: 8px;
+    border: 1px solid rgba(79, 84, 92, 0.6);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Status Animation */
+@keyframes status-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(59, 165, 92, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(59, 165, 92, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 165, 92, 0); }
+}
+
+#profile-container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, 
+        rgba(88, 101, 242, 0.1) 0%,
+        rgba(88, 101, 242, 0.05) 50%,
+        rgba(0, 0, 0, 0.1) 100%);
+    z-index: -1;
+}
+
+/* Avatar with Status Indicator */
+#profile-container .avatar-wrapper {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 8px;
+}
+
+#profile-container img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 3px solid #5865f2;
+    transition: transform 0.3s ease;
+}
+
+/* Status Dot */
+#profile-container .status-dot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid #18191c;
+    background: #3ba55c;
+    animation: status-pulse 2s infinite;
+}
+
+/* User Info Section */
+#profile-container .user-info {
+    text-align: center;
+    width: 100%;
+}
+
+#profile-container .username {
+    color: #fff;
+    font-family: 'Ginto Nord', 'Whitney', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+#profile-container .activity {
+    color: #b9bbbe;
+    font-size: 12px;
+    font-weight: 400;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+/* Logout Button */
+#profile-container button {
+    background: #ed4245;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-family: 'Whitney', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+#profile-container button:hover {
+    background: #ff4b4e;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(237, 66, 69, 0.3);
+}
+
+#profile-container button::before {
+    content: "🚪";
+    filter: brightness(1.2);
+}
+
+/* Hover Effects */
+#profile-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+}
+
+#profile-container:hover img {
+    transform: rotate(-5deg) scale(1.05);
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    #profile-container {
+        width: 90%;
+        padding: 12px;
+    }
+    
+    #profile-container .username {
+        font-size: 14px;
+    }
+    
+    #profile-container button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}
+
+/* Platform Indicator */
+.platform-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    color: #b9bbbe;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.platform-indicator::before {
+    content: "🖥️"; /* Change to 📱 for mobile */
+}
+
+.status-dot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid #18191c;
+}
+
+.status-dot.online { background: #3ba55c; }
+.status-dot.idle { background: #faa81a; }
+.status-dot.dnd { background: #ed4245; }
+.status-dot.offline { background: #747f8d; }
+
+.dnd-banner {
+    background: #ed4245;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-top: 4px;
+}}
+
+.gray-box {
+    background: #2b2d31; /* Discord-like dark theme */
+    padding: 20px;
+    border-radius: 8px;
+    color: white;
+    font-family: Arial, sans-serif;
+    width: 400px;
+}
+
+/* Discord Invite Container */
+.discord-invite {
+    width: 100%;
+    background: #23272a;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #40444b;
+}
+
+/* Banner */
+.invite-banner img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    background: #23272a;
+}
+
+/* Invite Content */
+.invite-content {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+}
+
+/* Server Icon */
+.server-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin-right: 12px;
+    background: #23272a;
+}
+
+/* Server Info */
+.server-info {
+    flex-grow: 1;
+}
+
+.server-info h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.server-info p {
+    margin: 2px 0;
+    font-size: 12px;
+    color: #b9bbbe;
+}
+
+/* Join Button */
+.join-button {
+    background: #3ba55d;
+    color: white;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.join-button:hover {
+    background: #2e8b57;
+}
+.data-container {
+    margin-top: 20px;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+}
+
+th, td {
+    border: 1px;
+    padding: 10px;
+    text-align: left;
+}
+
+th {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+a {
+    color: #4CAF50;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.search-container {
+    margin: 20px auto;
+    text-align: center;
+}
+
+#searchInput {
+    width: 80%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    text-align: center;
+    outline: none;
+    transition: 0.3s ease-in-out;
+}
+
+#searchInput:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 10px rgba(72, 255, 72, 0.6);
+}
