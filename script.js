@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     .eq('id', 1);
             }
             
-            // Fetch blacklist - MODIFIED to handle blacklist as an array in a single record
+            // Fetch blacklist - MODIFIED to handle blacklist data more robustly
             const { data: blacklistData, error: blacklistError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .select('*')
@@ -138,9 +138,26 @@ document.addEventListener("DOMContentLoaded", async function () {
                 throw new Error("Failed to fetch blacklist");
             }
             
-            // Get blacklisted IDs from the record
-            const blacklistIds = blacklistData?.blacklisted_ids || [];
-            console.log("📋 Loaded blacklist:", blacklistIds); // Debug log
+            // Debug: Log the raw blacklist data
+            console.log("Raw blacklist data:", blacklistData);
+            
+            // Handle blacklist data more robustly
+            let blacklistIds = [];
+            if (blacklistData && blacklistData.blacklisted_ids) {
+                // Handle both string and array formats
+                if (typeof blacklistData.blacklisted_ids === 'string') {
+                    try {
+                        blacklistIds = JSON.parse(blacklistData.blacklisted_ids);
+                    } catch (e) {
+                        console.error("Failed to parse blacklist string:", e);
+                        blacklistIds = [];
+                    }
+                } else if (Array.isArray(blacklistData.blacklisted_ids)) {
+                    blacklistIds = blacklistData.blacklisted_ids;
+                }
+            }
+            
+            console.log("📋 Processed blacklist:", blacklistIds); // Debug log
             
             // Update application state
             updateApplicationState({
