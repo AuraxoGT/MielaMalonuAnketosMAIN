@@ -381,11 +381,6 @@ function updateApplicationState(data) {
                 </div>
                 <div class="user-info">
                     <p class="username">${user.username}</p>
-                    <p class="activity">
-                        ${user.activities.length > 0 ? 
-                            `${user.activity.emoji} ${user.activity.name}` : 
-                            '📡 No active status'}
-                    </p>
                     ${user.status === 'dnd' ? '<div class="dnd-banner">Do Not Disturb</div>' : ''}
                 </div>
                 <button id="logout">Log Out</button>
