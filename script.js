@@ -139,11 +139,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
             
             // Debug: Log the raw blacklist data
-            console.log("Raw blacklist data:", blacklistData);
-            
-            
-}
-            
+            console.log("Raw blacklist data:", blacklistData);    
             console.log("📋 Processed blacklist:", blacklistData); // Debug log
             
             // Update application state
