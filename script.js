@@ -154,16 +154,17 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    function updateApplicationState(data) {
-        if (state.lastStatus !== data.status || JSON.stringify(state.blacklist) !== JSON.stringify(data.blacklist)) {
-            state.lastStatus = data.status;
-            state.blacklist = data.blacklist || [];
-            updateStatusDisplay();
-            console.log("🔄 Application state updated to:", state.lastStatus);
-            console.log("🔄 Blacklist updated to:", state.blacklist);
-        }
+function updateApplicationState(data) {
+    const newBlacklist = Array.isArray(data.blacklist) ? data.blacklist : [];
+    
+    if (state.lastStatus !== data.status || 
+        JSON.stringify(state.blacklist) !== JSON.stringify(newBlacklist)) {
+        state.lastStatus = data.status;
+        state.blacklist = newBlacklist; // Ensure this is always an array
+        updateStatusDisplay();
+        console.log("🔄 Application state updated");
     }
-
+}
     // ======================
     // FORM HANDLING
     // ======================
@@ -186,7 +187,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             await fetchStatus();
             
             // Check if user is blacklisted - with conversion to string to be safe
-            if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+           if ((state.blacklist || []).some(id => String(id) === String(state.currentUser.id))) {
                 console.log("🚫 User is blacklisted, blocking submission.");
                 throw new Error("User blacklisted");
             }
@@ -241,7 +242,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (state.lastStatus === "offline") throw new Error("Applications closed");
         
         // Check blacklist with string conversion for safety
-        if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+        if ((state.blacklist || []).some(id => String(id) === String(state.currentUser.id))) {
             console.log("🚫 User is blacklisted in prerequisites check");
             throw new Error("User blacklisted");
         }
