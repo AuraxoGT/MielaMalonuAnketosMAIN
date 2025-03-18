@@ -528,27 +528,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     
     // Call this once to ensure applications are open
-    forceStatusOnline();
-
-    function sanitizeInput(input) {
-        return String(input)
-            .substring(0, 1024)
-            .replace(/[@#`*_~]/g, "");
-    }
-
-    function showSuccessMessage(message) {
-        elements.responseMessage.textContent = message;
-        elements.responseMessage.style.color = "green";
-    }
-
-    function showErrorMessage(message) {
-        elements.responseMessage.textContent = message;
-        elements.responseMessage.style.color = "red";
-    }
-
-    function clearMessages() {
-        elements.responseMessage.textContent = "";
-    }
+   
 
     function handleSubmissionError(error) {
         console.error("Submission error:", error);
