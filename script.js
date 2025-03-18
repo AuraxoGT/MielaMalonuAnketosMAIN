@@ -141,18 +141,15 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Debug: Log the raw blacklist data
             console.log("Raw blacklist data:", blacklistData);
             
-            // Handle blacklist data more robustly
-           let blacklistIds = [];
-if (blacklistData.blacklisted_ids) {
-    blacklistIds = blacklistData.blacklisted_ids;
+            
 }
             
-            console.log("📋 Processed blacklist:", blacklistIds); // Debug log
+            console.log("📋 Processed blacklist:", blacklistData); // Debug log
             
             // Update application state
             updateApplicationState({
                 status: currentStatus,
-                blacklist: blacklistIds
+                blacklist: blacklistData
             });
             
         } catch (error) {
