@@ -4,8 +4,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Configuration
     const CONFIG = {
         SUPABASE: {
-            URL: "https://smodsdsnswwtnbnmzhse.supabase.co",
-            KEY: "your-anon-key-here"  // Replace with your actual anon key
+            URL: "https://your-project-url.supabase.co", // Replace with your Supabase URL
+            KEY: "your-anon-key-here"  // Replace with your Supabase anon key
         },
         DISCORD: {
             CLIENT_ID: "1263389179249692693",
