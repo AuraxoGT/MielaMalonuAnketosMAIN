@@ -4,8 +4,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Configuration
     const CONFIG = {
         SUPABASE: {
-            URL: "https://smodsdsnswwtnbnmzhse.supabase.co/rest/v1", // Replace with your Supabase URL
-            KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtb2RzZHNuc3d3dG5ibm16aHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2MjUyOTAsImV4cCI6MjA1NzIwMTI5MH0.zMdjymIaGU66_y6X-fS8nKnrWgJjXgw7NgXPBIzVCiI" // Replace with your Supabase anon key
+            URL: "https://smodsdsnswwtnbnmzhse.supabase.co",
+            KEY: "your-anon-key-here"  // Replace with your actual anon key
         },
         DISCORD: {
             CLIENT_ID: "1263389179249692693",
@@ -15,6 +15,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             GUILD_ID: "1325850250027597845"
         }
     };
+
+    // Initialize Supabase
+    const supabase = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.KEY);
 
     // DOM Elements
     const elements = {
@@ -49,14 +52,15 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     async function fetchStatus() {
         try {
+            // Fetch status from Supabase (replace 'SystemStatus' with your table name)
             const { data, error } = await supabase
-                .from('your_table') // Replace 'your_table' with your actual table name
+                .from('SystemStatus')  // Your status table
                 .select('*')
                 .single();  // Assuming you're storing a single record for status
 
             if (error) throw error;
-
-            updateApplicationState(data);
+            
+            updateApplicationState(data); 
         } catch (error) {
             console.error("❌ Status fetch error:", error);
             showErrorMessage("Failed to load application status");
@@ -106,86 +110,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    async function validateUserRole() {
-        try {
-            const response = await fetch("https://mmapi.onrender.com/api/check-role", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ userId: state.currentUser.id })
-            });
-
-            if (!response.ok) throw new Error("Server error while checking role");
-            const data = await response.json();
-
-            if (data.hasRole) throw new Error("LA")
-        } catch (error) {
-            showErrorMessage(error.message);
-            throw error; // Prevents form submission
-        }
-    }
-
-    function validateSubmissionPrerequisites() {
-        if (!state.currentUser) throw new Error("Not authenticated");
-        if (state.lastStatus === "offline") throw new Error("Applications closed");
-        if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
-    }
-
-    function gatherFormData() {
-        return {
-            userId: state.currentUser.id,
-            age: document.getElementById("age").value.trim(),
-            reason: document.getElementById("whyJoin").value.trim(),
-            pl: document.getElementById("pl").value.trim(),
-            kl: document.getElementById("kl").value.trim(),
-            pc: document.getElementById("pc").value.trim(),
-            isp: document.getElementById("isp").value.trim()
-        };
-    }
-
-    async function submitApplication(data) {
-        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
-
-        const payload = {
-            variables: [
-                { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
-                { name: "age", variable: "{event_age}", value: `${data.age}` },
-                { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
-                { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
-                { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
-                { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
-                { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
-                { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
-            ]
-        };
-
-        try {
-            const response = await fetch("https://proxy-sxyf.onrender.com/send-to-botghost", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) throw new Error("BotGhost API error");
-            showSuccessMessage("✅ Aplikacija pateikta!");
-            elements.form.reset();
-        } catch (error) {
-            console.error("BotGhost webhook error:", error);
-            showErrorMessage("❌ Nepavyko išsiųsti aplikacijos, bandykite dar kartą. Jei nepavyks, susisiekite su AuraxoGT.");
-        }
-    }
-
     // ======================
     // ADMIN FUNCTIONS
     // ======================
 
     async function addToBlacklist() {
         if (!authenticateAdmin()) return;
-        
+
         const newId = prompt("🚫 Enter User ID to blacklist:");
         if (!newId || state.blacklist.includes(newId)) {
             alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
@@ -193,7 +124,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
 
         state.blacklist.push(newId);
-        await updateSupabase();
+        await updateStatusInSupabase();
         alert(`✅ User ID "${newId}" has been blacklisted.`);
     }
 
@@ -207,25 +138,80 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
 
         state.blacklist = state.blacklist.filter(id => id !== idToRemove);
-        await updateSupabase();
+        await updateStatusInSupabase();
         alert(`✅ User ID "${idToRemove}" has been removed.`);
     }
 
-    async function updateSupabase() {
+    async function updateStatusInSupabase() {
         try {
+            // Update the status and blacklist in Supabase
             const { error } = await supabase
-                .from('your_table') // Replace 'your_table' with your actual table name
-                .upsert({ 
+                .from('SystemStatus')  // Replace with your table name
+                .upsert([{
+                    id: 1,  // Assuming you are using a single row with ID 1 for SystemStatus
                     status: state.lastStatus,
                     blacklist: state.blacklist
-                });
+                }]);
 
             if (error) throw error;
             console.log("✅ Supabase updated successfully");
         } catch (error) {
-            console.error("❌ Supabase update error:", error);
+            console.error("❌ Error updating Supabase:", error);
             throw error;
         }
+    }
+
+    function authenticateAdmin() {
+        if (sessionStorage.getItem("adminAuth") === "true") return true;
+        return requestPassword();
+    }
+
+    function requestPassword() {
+        const password = prompt("🔑 Enter admin password:");
+        if (password === "987412365") {
+            sessionStorage.setItem("adminAuth", "true");
+            alert("✅ Authentication successful!");
+            return true;
+        }
+        alert("❌ Invalid password!");
+        return false;
+    }
+
+    // ======================
+    // UI MANAGEMENT
+    // ======================
+
+    function updateStatusDisplay() {
+        if (state.lastStatus === "online") {
+            elements.statusDisplay.textContent = "✅ Atidaryta ✅";
+            elements.statusDisplay.className = "status-online";
+            elements.statusButton.textContent = "🟢 Uždaryti Anketas";
+        } else {
+            elements.statusDisplay.textContent = "❌ Uždaryta ❌";
+            elements.statusDisplay.className = "status-offline";
+            elements.statusButton.textContent = "🔴 Atidaryti Anketas";
+        }
+    }
+
+    async function toggleApplicationStatus() {
+        if (!authenticateAdmin()) return;
+        const newStatus = state.lastStatus === "online" ? "offline" : "online";
+        state.lastStatus = newStatus;
+        await updateStatusInSupabase();
+        updateStatusDisplay();
+    }
+
+    // ======================
+    // DISCORD INTEGRATION (MODIFIED)
+    // ======================
+
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
     }
 
     // ======================
@@ -248,35 +234,43 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     async function handleAuthRedirect(token) {
         try {
-            const userData = await fetchDiscordUserData(token);
-            state.currentUser = userData;
+            const userData = await fetchDiscordUser(token);
+            state.currentUser = {
+                ...userData,
+                accessToken: token
+            };
+            window.history.replaceState({}, document.title, window.location.pathname);
             updateUserInterface(state.currentUser);
-            window.location.hash = "";  // Clear the token
         } catch (error) {
-            console.error("Discord auth error:", error);
+            showErrorMessage("Failed to authenticate with Discord");
         }
     }
 
-    async function fetchDiscordUserData(token) {
-        const response = await fetch(`https://discord.com/api/v10/users/@me`, {
-            headers: {
-                "Authorization": `Bearer ${token}`
-            }
-        });
+    // ======================
+    // DISCORD FUNCTIONS (MODIFIED)
+    // ======================
 
-        const data = await response.json();
-        return data;
+    async function fetchDiscordUser(token) {
+        try {
+            const response = await fetch("https://discord.com/api/users/@me", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const user = await response.json();
+            return user;
+        } catch (error) {
+            console.error("Discord API error:", error);
+            return {};
+        }
     }
 
-    function updateUserInterface(user) {
-        if (user) {
-            elements.discordButton.style.display = "none";
-            elements.profileContainer.style.display = "block";
-            elements.profileContainer.innerHTML = `Welcome, ${user.username}`;
-        } else {
-            elements.discordButton.style.display = "block";
-            elements.profileContainer.style.display = "none";
-        }
+    // ======================
+    // MESSAGE FUNCTIONS
+    // ======================
+
+    function showSuccessMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.style.color = "green";
     }
 
     function showErrorMessage(message) {
@@ -284,20 +278,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         elements.responseMessage.style.color = "red";
     }
 
-    function showSuccessMessage(message) {
-        elements.responseMessage.textContent = message;
-        elements.responseMessage.style.color = "green";
-    }
-
     function clearMessages() {
         elements.responseMessage.textContent = "";
-    }
-
-    function authenticateAdmin() {
-        const isAdmin = state.currentUser && state.currentUser.id === "YOUR_ADMIN_ID";  // Replace with actual admin ID
-        if (!isAdmin) {
-            alert("You are not authorized to perform this action.");
-        }
-        return isAdmin;
     }
 });
