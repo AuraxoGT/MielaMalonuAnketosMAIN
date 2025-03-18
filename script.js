@@ -5,8 +5,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Configuration
     const CONFIG = {
         JSONBIN: {
-            URL: "https://smodsdsnswwtnbnmzhse.supabase.co/rest/v1",
-            KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtb2RzZHNuc3d3dG5ibm16aHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2MjUyOTAsImV4cCI6MjA1NzIwMTI5MH0.zMdjymIaGU66_y6X-fS8nKnrWgJjXgw7NgXPBIzVCiI"
+            URL: "https://api.jsonbin.io/v3/b/67d58fbd8960c979a57217dc",
+            KEY: "$2a$10$EI/DCislmCWyY2Rpu9ch3.wy7x13y39wSTBBBPXAyxvd/hr4anttC"
         },
         DISCORD: {
             CLIENT_ID: "1263389179249692693",
@@ -50,9 +50,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     async function fetchStatus() {
         try {
-            const response = await fetch(${CONFIG.JSONBIN.URL}/Status?id=eq.${BLACKLIST_ID}&select=status,{
-                headers: {  "apikey": CONFIG.JSONBIN.KEY,
-                    "Content-Type": "application/json" }
+            const response = await fetch(CONFIG.JSONBIN.URL, {
+                headers: { "X-Master-Key": CONFIG.JSONBIN.KEY }
             });
             const data = await response.json();
             
