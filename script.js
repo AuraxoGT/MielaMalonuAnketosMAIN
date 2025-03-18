@@ -1,11 +1,12 @@
+
 document.addEventListener("DOMContentLoaded", async function () {
     console.log("✅ DOM fully loaded!");
 
     // Configuration
     const CONFIG = {
-        SUPABASE: {
-            URL: "https://your-project-url.supabase.co", // Replace with your Supabase URL
-            KEY: "your-anon-key-here"  // Replace with your Supabase anon key
+        JSONBIN: {
+            URL: "https://smodsdsnswwtnbnmzhse.supabase.co/rest/v1",
+            KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtb2RzZHNuc3d3dG5ibm16aHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2MjUyOTAsImV4cCI6MjA1NzIwMTI5MH0.zMdjymIaGU66_y6X-fS8nKnrWgJjXgw7NgXPBIzVCiI"
         },
         DISCORD: {
             CLIENT_ID: "1263389179249692693",
@@ -15,9 +16,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             GUILD_ID: "1325850250027597845"
         }
     };
-
-    // Supabase Client Setup
-    const supabase = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.KEY);
 
     // DOM Elements
     const elements = {
@@ -35,7 +33,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     let state = {
         blacklist: [],
         lastStatus: null,
-        currentUser: null, 
+        currentUser: null, // Modified: Memory-only Discord auth
         updateInterval: null
     };
 
@@ -52,15 +50,15 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     async function fetchStatus() {
         try {
-            const { data, error } = await supabase
-                .from('SystemStatus')
-                .select('status, blacklist')
-                .eq('id', 1)
-                .single();
+            const response = await fetch(${CONFIG.JSONBIN.URL}/Status?id=eq.${BLACKLIST_ID}&select=status,{
+                headers: {  "apikey": CONFIG.JSONBIN.KEY,
+                    "Content-Type": "application/json" }
+            });
+            const data = await response.json();
             
-            if (error) throw new Error("Failed to fetch status from Supabase");
-
-            updateApplicationState(data);
+            if (!response.ok) throw new Error("Failed to fetch status");
+            updateApplicationState(data.record);
+            
         } catch (error) {
             console.error("❌ Status fetch error:", error);
             showErrorMessage("Failed to load application status");
@@ -80,111 +78,111 @@ document.addEventListener("DOMContentLoaded", async function () {
     // FORM HANDLING
     // ======================
 
-    async function handleFormSubmit(event) {
-        event.preventDefault();
-        clearMessages();
+  async function handleFormSubmit(event) {
+    event.preventDefault();
+    clearMessages();
 
-        const submitButton = event.target.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = "Pateikiama...";
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = "Pateikiama...";
 
-        try {
-            await validateUserRole(); // Check role before proceeding
-            validateSubmissionPrerequisites();
-            const formData = gatherFormData();
-            await submitApplication(formData);
+    try {
+        await validateUserRole(); // Check role before proceeding
+        validateSubmissionPrerequisites();
+        const formData = gatherFormData();
+        await submitApplication(formData);
 
-            submitButton.textContent = "Pateikta!";
-            setTimeout(() => {
-                submitButton.textContent = "Pateikti";
-                submitButton.disabled = false;
-            }, 3000);
+        submitButton.textContent = "Pateikta!";
+        setTimeout(() => {
+            submitButton.textContent = "Pateikti";
+            submitButton.disabled = false;
+        }, 3000);
 
-        } catch (error) {
-            handleSubmissionError(error);
-            submitButton.textContent = "Bandykite dar kartą";
-            setTimeout(() => {
-                submitButton.textContent = "Pateikti";
-                submitButton.disabled = false;
-            }, 3000);
-        }
+    } catch (error) {
+        handleSubmissionError(error);
+        submitButton.textContent = "Bandykite dar kartą";
+        setTimeout(() => {
+            submitButton.textContent = "Pateikti";
+            submitButton.disabled = false;
+        }, 3000);
     }
+}
 
-    async function validateUserRole() {
-        try {
-            const response = await fetch("https://mmapi.onrender.com/api/check-role", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ userId: state.currentUser.id })
-            });
+async function validateUserRole() {
+    try {
+        const response = await fetch("https://mmapi.onrender.com/api/check-role", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ userId: state.currentUser.id })
+        });
 
-            if (!response.ok) throw new Error("Server error while checking role");
-            const data = await response.json();
+        if (!response.ok) throw new Error("Server error while checking role");
+        const data = await response.json();
 
-            if (data.hasRole) throw new Error("LA")
-        } catch (error) {
-            showErrorMessage(error.message);
-            throw error; // Prevents form submission
-        }
+        if (data.hasRole) throw new Error("LA")
+    } catch (error) {
+        showErrorMessage(error.message);
+        throw error; // Prevents form submission
     }
+}
 
-    function validateSubmissionPrerequisites() {
-        if (!state.currentUser) throw new Error("Not authenticated");
-        if (state.lastStatus === "offline") throw new Error("Applications closed");
-        if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
+function validateSubmissionPrerequisites() {
+    if (!state.currentUser) throw new Error("Not authenticated");
+    if (state.lastStatus === "offline") throw new Error("Applications closed");
+    if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
+}
+
+function gatherFormData() {
+    return {
+        userId: state.currentUser.id,
+        age: document.getElementById("age").value.trim(),
+        reason: document.getElementById("whyJoin").value.trim(),
+        pl: document.getElementById("pl").value.trim(),
+        kl: document.getElementById("kl").value.trim(),
+        pc: document.getElementById("pc").value.trim(),
+        isp: document.getElementById("isp").value.trim()
+    };
+}
+
+async function submitApplication(data) {
+    const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
+
+    const payload = {
+        variables: [
+            { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
+            { name: "age", variable: "{event_age}", value: `${data.age}` },
+            { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
+            { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
+            { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
+            { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
+            { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
+            { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
+        ]
+    };
+
+    try {
+        const response = await fetch("https://proxy-sxyf.onrender.com/send-to-botghost", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error("BotGhost API error");
+        showSuccessMessage("✅ Aplikacija pateikta!");
+        elements.form.reset();
+    } catch (error) {
+        console.error("BotGhost webhook error:", error);
+        showErrorMessage("❌ Nepavyko išsiųsti aplikacijos, bandykite dar kartą. Jei nepavyks, susisiekite su AuraxoGT.");
     }
-
-    function gatherFormData() {
-        return {
-            userId: state.currentUser.id,
-            age: document.getElementById("age").value.trim(),
-            reason: document.getElementById("whyJoin").value.trim(),
-            pl: document.getElementById("pl").value.trim(),
-            kl: document.getElementById("kl").value.trim(),
-            pc: document.getElementById("pc").value.trim(),
-            isp: document.getElementById("isp").value.trim()
-        };
-    }
-
-    async function submitApplication(data) {
-        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
-
-        const payload = {
-            variables: [
-                { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
-                { name: "age", variable: "{event_age}", value: `${data.age}` },
-                { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
-                { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
-                { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
-                { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
-                { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
-                { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
-            ]
-        };
-
-        try {
-            const response = await fetch("https://proxy-sxyf.onrender.com/send-to-botghost", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) throw new Error("BotGhost API error");
-            showSuccessMessage("✅ Aplikacija pateikta!");
-            elements.form.reset();
-        } catch (error) {
-            console.error("BotGhost webhook error:", error);
-            showErrorMessage("❌ Nepavyko išsiųsti aplikacijos, bandykite dar kartą. Jei nepavyks, susisiekite su AuraxoGT.");
-        }
-    }
+}
 
     // ======================
-    // DISCORD INTEGRATION
+    // DISCORD INTEGRATION (MODIFIED)
     // ======================
 
     function handleDiscordAuth() {
@@ -211,7 +209,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             const presence = await presenceData.json();
 
             if (!user.id) throw new Error("Invalid user data");
-
+            
             const status = presence.presence?.status || 'offline';
             const activities = presence.activities || [];
             const mainActivity = activities.find(a => a.type === 0) || {};
@@ -237,61 +235,258 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     async function updateDiscordPresence() {
         if (!state.currentUser) return;
-
+        
         try {
-            const user = await fetchDiscordUser(localStorage.getItem('discord-token'));
-            if (user) state.currentUser = user;
+            const user = await fetchDiscordUser(state.currentUser.accessToken);
+            if (user.status !== state.currentUser.status || 
+                JSON.stringify(user.activities) !== JSON.stringify(state.currentUser.activities)) {
+                state.currentUser = { ...user, accessToken: state.currentUser.accessToken };
+                updateUserInterface(state.currentUser);
+            }
         } catch (error) {
-            console.error("Error updating Discord presence:", error);
+            console.error("Presence update error:", error);
         }
     }
 
     // ======================
-    // UI & STATE MANAGEMENT
+    // UI MANAGEMENT (MODIFIED)
     // ======================
 
-    function updateStatusDisplay() {
-        elements.statusDisplay.textContent = `Status: ${state.lastStatus}`;
-        elements.blacklistButton.disabled = state.lastStatus === "offline";
-        elements.removeButton.disabled = state.lastStatus !== "offline";
+    function updateUserInterface(user) {
+        if (user) {
+            elements.profileContainer.innerHTML = `
+                <div class="avatar-wrapper">
+                    <img src="${user.avatar}" alt="Avatar">
+                    <div class="status-dot ${user.status}"></div>
+                </div>
+                <div class="user-info">
+                    <p class="username">${user.username}</p>
+                    <p class="activity">
+                        ${user.activities.length > 0 ? 
+                            `${user.activity.emoji} ${user.activity.name}` : 
+                            '📡 No active status'}
+                    </p>
+                    ${user.status === 'dnd' ? '<div class="dnd-banner">Do Not Disturb</div>' : ''}
+                </div>
+                <button id="logout">Log Out</button>
+            `;
+            document.getElementById("logout").addEventListener("click", handleLogout);
+        }
+        toggleAuthElements(!!user);
     }
 
-    function clearMessages() {
-        elements.responseMessage.textContent = '';
-    }
-
-    function showErrorMessage(message) {
-        elements.responseMessage.textContent = `❌ ${message}`;
-    }
-
-    function showSuccessMessage(message) {
-        elements.responseMessage.textContent = `✅ ${message}`;
+    function startPresenceUpdates() {
+        if (state.updateInterval) clearInterval(state.updateInterval);
+        state.updateInterval = setInterval(updateDiscordPresence, 5000);
     }
 
     // ======================
-    // EVENT LISTENERS
+    // ADMIN FUNCTIONS (UNCHANGED)
+    // ======================
+
+    async function addToBlacklist() {
+        if (!authenticateAdmin()) return;
+        
+        const newId = prompt("🚫 Enter User ID to blacklist:");
+        if (!newId || state.blacklist.includes(newId)) {
+            alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
+            return;
+        }
+
+        state.blacklist.push(newId);
+        await updateJSONBin();
+        alert(`✅ User ID "${newId}" has been blacklisted.`);
+    }
+
+    async function removeFromBlacklist() {
+        if (!authenticateAdmin()) return;
+
+        const idToRemove = prompt("❌ Enter User ID to remove from blacklist:");
+        if (!idToRemove || !state.blacklist.includes(idToRemove)) {
+            alert(`⚠️ User ID "${idToRemove}" is not in the blacklist.`);
+            return;
+        }
+
+        state.blacklist = state.blacklist.filter(id => id !== idToRemove);
+        await updateJSONBin();
+        alert(`✅ User ID "${idToRemove}" has been removed.`);
+    }
+
+    function authenticateAdmin() {
+        if (sessionStorage.getItem("adminAuth") === "true") return true;
+        return requestPassword();
+    }
+
+    function requestPassword() {
+        const password = prompt("🔑 Enter admin password:");
+        if (password === "987412365") {
+            sessionStorage.setItem("adminAuth", "true");
+            alert("✅ Authentication successful!");
+            return true;
+        }
+        alert("❌ Invalid password!");
+        return false;
+    }
+
+    // ======================
+    // UTILITY FUNCTIONS (MODIFIED)
     // ======================
 
     function initializeEventListeners() {
         elements.form.addEventListener("submit", handleFormSubmit);
+        elements.statusButton.addEventListener("click", toggleApplicationStatus);
+        elements.blacklistButton.addEventListener("click", addToBlacklist);
+        elements.removeButton.addEventListener("click", removeFromBlacklist);
         elements.discordButton.addEventListener("click", handleDiscordAuth);
     }
 
-    // ======================
-    // INITIALIZATION
-    // ======================
-    async function checkAuthState() {
-        const token = localStorage.getItem("discord-token");
+    function checkAuthState() {
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        if (token) handleAuthRedirect(token);
+        updateUserInterface(state.currentUser);
+    }
 
-        if (token) {
-            const user = await fetchDiscordUser(token);
-            if (user.id) {
-                state.currentUser = user;
-                updateStatusDisplay();
-                console.log("✅ User authenticated successfully:", user);
-            } else {
-                console.log("❌ Discord authentication failed");
-            }
+    async function handleAuthRedirect(token) {
+        try {
+            const userData = await fetchDiscordUser(token);
+            state.currentUser = {
+                ...userData,
+                accessToken: token
+            };
+            window.history.replaceState({}, document.title, window.location.pathname);
+            updateUserInterface(state.currentUser);
+            startPresenceUpdates();
+        } catch (error) {
+            showErrorMessage("Failed to authenticate with Discord");
         }
     }
+
+    function handleLogout() {
+        clearInterval(state.updateInterval);
+        state.currentUser = null;
+        updateUserInterface(null);
+        location.reload();
+    }
+
+    async function updateServerStatus(newStatus) {
+        try {
+            state.lastStatus = newStatus;
+            await updateJSONBin(newStatus);
+            updateStatusDisplay();
+        } catch (error) {
+            console.error("Status update failed:", error);
+            showErrorMessage("Failed to update application status");
+        }
+    }
+
+    async function updateJSONBin(newStatus = state.lastStatus) {
+        try {
+            await fetch(CONFIG.JSONBIN.URL, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": CONFIG.JSONBIN.KEY,
+                },
+                body: JSON.stringify({ 
+                    status: newStatus, 
+                    blacklist: state.blacklist 
+                })
+            });
+            console.log("✅ JSONBin updated successfully");
+        } catch (error) {
+            console.error("❌ JSONBin update error:", error);
+            throw error;
+        }
+    }
+
+    function sanitizeInput(input) {
+        return String(input)
+            .substring(0, 1024)
+            .replace(/[@#`*_~]/g, "");
+    }
+
+    function showSuccessMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.style.color = "green";
+    }
+
+    function showErrorMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.style.color = "red";
+    }
+
+    function clearMessages() {
+        elements.responseMessage.textContent = "";
+    }
+
+    function handleSubmissionError(error) {
+        console.error("Submission error:", error);
+        const message = {
+            "Not authenticated": "❌ Turite prisijungti su Discord prieš pateikiant! (Jei esate prisijunge atsijunkite ir prisijunkite iš naujo)",
+            "Applications closed": "❌ Anketos šiuo metu uždarytos.",
+            "User blacklisted": "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!",
+            "LA": "🚫 Jau pateikėte anketą!",
+        }[error.message] || "❌ Nepavyko išsiųsti aplikacijos. (Įsitikinkite kad prisijungėte su Discord)";
+        
+        showErrorMessage(message);
+    }
+
+    function toggleAuthElements(authenticated) {
+        elements.profileContainer.style.display = authenticated ? "flex" : "none";
+        elements.discordButton.style.display = authenticated ? "none" : "block";
+    }
+
+    function updateStatusDisplay() {
+        if (state.lastStatus === "online") {
+            elements.statusDisplay.textContent = "✅ Atidaryta ✅";
+            elements.statusDisplay.className = "status-online";
+            elements.statusButton.textContent = "🟢 Uždaryti Anketas";
+        } else {
+            elements.statusDisplay.textContent = "❌ Uždaryta ❌";
+            elements.statusDisplay.className = "status-offline";
+            elements.statusButton.textContent = "🔴 Atidaryti Anketas";
+        }
+    }
+
+    async function toggleApplicationStatus() {
+        if (!authenticateAdmin()) return;
+        const newStatus = state.lastStatus === "online" ? "offline" : "online";
+        await updateServerStatus(newStatus);
+    }
+async function fetchDiscordInvite(inviteCode, containerClass) {
+    const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+    const data = await response.json();
+
+    if (data.guild) {
+        const container = document.querySelector(`.${containerClass}`);
+        if (!container) return console.error("Container not found!");
+
+        // Remove any existing invite before adding a new one
+        const oldInvite = container.querySelector(".discord-invite");
+        if (oldInvite) oldInvite.remove();
+
+        // Create the Discord invite HTML structure dynamically
+        const inviteHTML = `
+            <div class="discord-invite">
+                <div class="invite-banner">
+                    ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
+                </div>
+                <div class="invite-content">
+                    <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                    <div class="server-info">
+                        <h3>${data.guild.name}</h3>
+                        <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                    </div>
+                    <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                </div>
+            </div>
+        `;
+
+        container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
+    }
+}
+
+// Call function and pass the container class where you want the invite to be displayed
+fetchDiscordInvite("mielamalonu", "rules-container"); // Change class if needed
+
 });
