@@ -1,12 +1,13 @@
-
 document.addEventListener("DOMContentLoaded", async function () {
     console.log("✅ DOM fully loaded!");
 
     // Configuration
     const CONFIG = {
-        JSONBIN: {
-            URL: "https://api.jsonbin.io/v3/b/67d58fbd8960c979a57217dc",
-            KEY: "$2a$10$EI/DCislmCWyY2Rpu9ch3.wy7x13y39wSTBBBPXAyxvd/hr4anttC"
+        SUPABASE: {
+            URL: "https://smodsdsnswwtnbnmzhse.supabase.co/rest/v1",
+            API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtb2RzZHNuc3d3dG5ibm16aHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2MjUyOTAsImV4cCI6MjA1NzIwMTI5MH0.zMdjymIaGU66_y6X-fS8nKnrWgJjXgw7NgXPBIzVCiI",
+            STATUS_TABLE: "Status",
+            BLACKLIST_TABLE: "Blacklist"
         },
         DISCORD: {
             CLIENT_ID: "1263389179249692693",
@@ -16,6 +17,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             GUILD_ID: "1325850250027597845"
         }
     };
+
+    // Initialize Supabase client
+    const supabase = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.API_KEY);
+    console.log("✅ Supabase client initialized!");
 
     // DOM Elements
     const elements = {
@@ -50,13 +55,29 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     async function fetchStatus() {
         try {
-            const response = await fetch(CONFIG.JSONBIN.URL, {
-                headers: { "X-Master-Key": CONFIG.JSONBIN.KEY }
-            });
-            const data = await response.json();
+            // Fetch application status
+            const { data: statusData, error: statusError } = await supabase
+                .from(CONFIG.SUPABASE.STATUS_TABLE)
+                .select('status')
+                .single(); // Assuming there's only one row with the status
             
-            if (!response.ok) throw new Error("Failed to fetch status");
-            updateApplicationState(data.record);
+            if (statusError) throw new Error("Failed to fetch status");
+            
+            // Fetch blacklist
+            const { data: blacklistData, error: blacklistError } = await supabase
+                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                .select('user_id'); // Assuming user_id is the column name
+            
+            if (blacklistError) throw new Error("Failed to fetch blacklist");
+            
+            // Extract user IDs from blacklist data
+            const blacklistIds = blacklistData.map(item => item.user_id);
+            
+            // Update application state
+            updateApplicationState({
+                status: statusData.status,
+                blacklist: blacklistIds
+            });
             
         } catch (error) {
             console.error("❌ Status fetch error:", error);
@@ -77,108 +98,108 @@ document.addEventListener("DOMContentLoaded", async function () {
     // FORM HANDLING
     // ======================
 
-  async function handleFormSubmit(event) {
-    event.preventDefault();
-    clearMessages();
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        clearMessages();
 
-    const submitButton = event.target.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
-    submitButton.textContent = "Pateikiama...";
+        const submitButton = event.target.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = "Pateikiama...";
 
-    try {
-        await validateUserRole(); // Check role before proceeding
-        validateSubmissionPrerequisites();
-        const formData = gatherFormData();
-        await submitApplication(formData);
+        try {
+            await validateUserRole(); // Check role before proceeding
+            validateSubmissionPrerequisites();
+            const formData = gatherFormData();
+            await submitApplication(formData);
 
-        submitButton.textContent = "Pateikta!";
-        setTimeout(() => {
-            submitButton.textContent = "Pateikti";
-            submitButton.disabled = false;
-        }, 3000);
+            submitButton.textContent = "Pateikta!";
+            setTimeout(() => {
+                submitButton.textContent = "Pateikti";
+                submitButton.disabled = false;
+            }, 3000);
 
-    } catch (error) {
-        handleSubmissionError(error);
-        submitButton.textContent = "Bandykite dar kartą";
-        setTimeout(() => {
-            submitButton.textContent = "Pateikti";
-            submitButton.disabled = false;
-        }, 3000);
+        } catch (error) {
+            handleSubmissionError(error);
+            submitButton.textContent = "Bandykite dar kartą";
+            setTimeout(() => {
+                submitButton.textContent = "Pateikti";
+                submitButton.disabled = false;
+            }, 3000);
+        }
     }
-}
 
-async function validateUserRole() {
-    try {
-        const response = await fetch("https://mmapi.onrender.com/api/check-role", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ userId: state.currentUser.id })
-        });
+    async function validateUserRole() {
+        try {
+            const response = await fetch("https://mmapi.onrender.com/api/check-role", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ userId: state.currentUser.id })
+            });
 
-        if (!response.ok) throw new Error("Server error while checking role");
-        const data = await response.json();
+            if (!response.ok) throw new Error("Server error while checking role");
+            const data = await response.json();
 
-        if (data.hasRole) throw new Error("LA")
-    } catch (error) {
-        showErrorMessage(error.message);
-        throw error; // Prevents form submission
+            if (data.hasRole) throw new Error("LA")
+        } catch (error) {
+            showErrorMessage(error.message);
+            throw error; // Prevents form submission
+        }
     }
-}
 
-function validateSubmissionPrerequisites() {
-    if (!state.currentUser) throw new Error("Not authenticated");
-    if (state.lastStatus === "offline") throw new Error("Applications closed");
-    if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
-}
-
-function gatherFormData() {
-    return {
-        userId: state.currentUser.id,
-        age: document.getElementById("age").value.trim(),
-        reason: document.getElementById("whyJoin").value.trim(),
-        pl: document.getElementById("pl").value.trim(),
-        kl: document.getElementById("kl").value.trim(),
-        pc: document.getElementById("pc").value.trim(),
-        isp: document.getElementById("isp").value.trim()
-    };
-}
-
-async function submitApplication(data) {
-    const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
-
-    const payload = {
-        variables: [
-            { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
-            { name: "age", variable: "{event_age}", value: `${data.age}` },
-            { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
-            { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
-            { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
-            { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
-            { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
-            { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
-        ]
-    };
-
-    try {
-        const response = await fetch("https://proxy-sxyf.onrender.com/send-to-botghost", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error("BotGhost API error");
-        showSuccessMessage("✅ Aplikacija pateikta!");
-        elements.form.reset();
-    } catch (error) {
-        console.error("BotGhost webhook error:", error);
-        showErrorMessage("❌ Nepavyko išsiųsti aplikacijos, bandykite dar kartą. Jei nepavyks, susisiekite su AuraxoGT.");
+    function validateSubmissionPrerequisites() {
+        if (!state.currentUser) throw new Error("Not authenticated");
+        if (state.lastStatus === "offline") throw new Error("Applications closed");
+        if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
     }
-}
+
+    function gatherFormData() {
+        return {
+            userId: state.currentUser.id,
+            age: document.getElementById("age").value.trim(),
+            reason: document.getElementById("whyJoin").value.trim(),
+            pl: document.getElementById("pl").value.trim(),
+            kl: document.getElementById("kl").value.trim(),
+            pc: document.getElementById("pc").value.trim(),
+            isp: document.getElementById("isp").value.trim()
+        };
+    }
+
+    async function submitApplication(data) {
+        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
+
+        const payload = {
+            variables: [
+                { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
+                { name: "age", variable: "{event_age}", value: `${data.age}` },
+                { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
+                { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
+                { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
+                { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
+                { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
+                { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
+            ]
+        };
+
+        try {
+            const response = await fetch("https://proxy-sxyf.onrender.com/send-to-botghost", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("BotGhost API error");
+            showSuccessMessage("✅ Aplikacija pateikta!");
+            elements.form.reset();
+        } catch (error) {
+            console.error("BotGhost webhook error:", error);
+            showErrorMessage("❌ Nepavyko išsiųsti aplikacijos, bandykite dar kartą. Jei nepavyks, susisiekite su AuraxoGT.");
+        }
+    }
 
     // ======================
     // DISCORD INTEGRATION (MODIFIED)
@@ -280,7 +301,7 @@ async function submitApplication(data) {
     }
 
     // ======================
-    // ADMIN FUNCTIONS (UNCHANGED)
+    // ADMIN FUNCTIONS (MODIFIED FOR SUPABASE)
     // ======================
 
     async function addToBlacklist() {
@@ -293,8 +314,18 @@ async function submitApplication(data) {
         }
 
         state.blacklist.push(newId);
-        await updateJSONBin();
-        alert(`✅ User ID "${newId}" has been blacklisted.`);
+        
+        try {
+            const { error } = await supabase
+                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                .insert({ user_id: newId });
+                
+            if (error) throw error;
+            alert(`✅ User ID "${newId}" has been blacklisted.`);
+        } catch (error) {
+            console.error("Blacklist update error:", error);
+            alert(`❌ Failed to blacklist user: ${error.message}`);
+        }
     }
 
     async function removeFromBlacklist() {
@@ -307,8 +338,19 @@ async function submitApplication(data) {
         }
 
         state.blacklist = state.blacklist.filter(id => id !== idToRemove);
-        await updateJSONBin();
-        alert(`✅ User ID "${idToRemove}" has been removed.`);
+        
+        try {
+            const { error } = await supabase
+                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                .delete()
+                .eq('user_id', idToRemove);
+                
+            if (error) throw error;
+            alert(`✅ User ID "${idToRemove}" has been removed.`);
+        } catch (error) {
+            console.error("Blacklist update error:", error);
+            alert(`❌ Failed to remove from blacklist: ${error.message}`);
+        }
     }
 
     function authenticateAdmin() {
@@ -367,34 +409,22 @@ async function submitApplication(data) {
         location.reload();
     }
 
-    async function updateServerStatus(newStatus) {
+    async function toggleApplicationStatus() {
+        if (!authenticateAdmin()) return;
+        const newStatus = state.lastStatus === "online" ? "offline" : "online";
+        state.lastStatus = newStatus;
+        
         try {
-            state.lastStatus = newStatus;
-            await updateJSONBin(newStatus);
+            const { error } = await supabase
+                .from(CONFIG.SUPABASE.STATUS_TABLE)
+                .update({ status: newStatus })
+                .eq('id', 1); // Assuming there's a row with id=1
+                
+            if (error) throw error;
             updateStatusDisplay();
         } catch (error) {
-            console.error("Status update failed:", error);
+            console.error("Status update error:", error);
             showErrorMessage("Failed to update application status");
-        }
-    }
-
-    async function updateJSONBin(newStatus = state.lastStatus) {
-        try {
-            await fetch(CONFIG.JSONBIN.URL, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Master-Key": CONFIG.JSONBIN.KEY,
-                },
-                body: JSON.stringify({ 
-                    status: newStatus, 
-                    blacklist: state.blacklist 
-                })
-            });
-            console.log("✅ JSONBin updated successfully");
-        } catch (error) {
-            console.error("❌ JSONBin update error:", error);
-            throw error;
         }
     }
 
@@ -447,45 +477,39 @@ async function submitApplication(data) {
         }
     }
 
-    async function toggleApplicationStatus() {
-        if (!authenticateAdmin()) return;
-        const newStatus = state.lastStatus === "online" ? "offline" : "online";
-        await updateServerStatus(newStatus);
-    }
-async function fetchDiscordInvite(inviteCode, containerClass) {
-    const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
-    const data = await response.json();
+    async function fetchDiscordInvite(inviteCode, containerClass) {
+        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+        const data = await response.json();
 
-    if (data.guild) {
-        const container = document.querySelector(`.${containerClass}`);
-        if (!container) return console.error("Container not found!");
+        if (data.guild) {
+            const container = document.querySelector(`.${containerClass}`);
+            if (!container) return console.error("Container not found!");
 
-        // Remove any existing invite before adding a new one
-        const oldInvite = container.querySelector(".discord-invite");
-        if (oldInvite) oldInvite.remove();
+            // Remove any existing invite before adding a new one
+            const oldInvite = container.querySelector(".discord-invite");
+            if (oldInvite) oldInvite.remove();
 
-        // Create the Discord invite HTML structure dynamically
-        const inviteHTML = `
-            <div class="discord-invite">
-                <div class="invite-banner">
-                    ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
-                </div>
-                <div class="invite-content">
-                    <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
-                    <div class="server-info">
-                        <h3>${data.guild.name}</h3>
-                        <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+            // Create the Discord invite HTML structure dynamically
+            const inviteHTML = `
+                <div class="discord-invite">
+                    <div class="invite-banner">
+                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
                     </div>
-                    <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                    <div class="invite-content">
+                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                        <div class="server-info">
+                            <h3>${data.guild.name}</h3>
+                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                        </div>
+                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
 
-        container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
+            container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
+        }
     }
-}
 
-// Call function and pass the container class where you want the invite to be displayed
-fetchDiscordInvite("mielamalonu", "rules-container"); // Change class if needed
-
+    // Call function and pass the container class where you want the invite to be displayed
+    fetchDiscordInvite("mielamalonu", "rules-container"); // Change class if needed
 });
