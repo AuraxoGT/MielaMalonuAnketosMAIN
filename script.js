@@ -143,8 +143,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             // Handle blacklist data more robustly
            let blacklistIds = [];
-if (blacklistData && blacklistData.blacklisted_ids) {
-    // Store the raw blacklisted_ids without complex processing
+if (blacklistData.blacklisted_ids) {
     blacklistIds = blacklistData.blacklisted_ids;
 }
             
