@@ -140,6 +140,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             // Get blacklisted IDs from the record
             const blacklistIds = blacklistData?.blacklisted_ids || [];
+            console.log("📋 Loaded blacklist:", blacklistIds); // Debug log
             
             // Update application state
             updateApplicationState({
@@ -159,6 +160,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             state.blacklist = data.blacklist || [];
             updateStatusDisplay();
             console.log("🔄 Application state updated to:", state.lastStatus);
+            console.log("🔄 Blacklist updated to:", state.blacklist);
         }
     }
 
@@ -175,6 +177,20 @@ document.addEventListener("DOMContentLoaded", async function () {
         submitButton.textContent = "Pateikiama...";
 
         try {
+            // First check if user is authenticated
+            if (!state.currentUser) {
+                throw new Error("Discord authentication required");
+            }
+
+            // Ensure we have latest blacklist before proceeding
+            await fetchStatus();
+            
+            // Check if user is blacklisted - with conversion to string to be safe
+            if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+                console.log("🚫 User is blacklisted, blocking submission.");
+                throw new Error("User blacklisted");
+            }
+            
             await validateUserRole(); // Check role before proceeding
             validateSubmissionPrerequisites();
             const formData = gatherFormData();
@@ -217,9 +233,18 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     function validateSubmissionPrerequisites() {
-        if (!state.currentUser) throw new Error("Not authenticated");
+        console.log("🔎 Validating prerequisites...");
+        console.log("👤 Current user:", state.currentUser);
+        console.log("📋 Current blacklist:", state.blacklist);
+
+        if (!state.currentUser) throw new Error("Discord authentication required");
         if (state.lastStatus === "offline") throw new Error("Applications closed");
-        if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
+        
+        // Check blacklist with string conversion for safety
+        if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+            console.log("🚫 User is blacklisted in prerequisites check");
+            throw new Error("User blacklisted");
+        }
     }
 
     function gatherFormData() {
@@ -235,6 +260,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     async function submitApplication(data) {
+        // Final blacklist check before submission
+        if (state.blacklist.some(id => String(id) === String(data.userId))) {
+            console.log("🚫 Final blacklist check blocked submission");
+            throw new Error("User blacklisted");
+        }
+
         const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
 
         const payload = {
@@ -546,12 +577,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
     
-    // Call this once to ensure applications are open
-   
     function handleSubmissionError(error) {
         console.error("Submission error:", error);
         const message = {
-            "Not authenticated": "❌ Turite prisijungti su Discord prieš pateikiant! (Jei esate prisijunge atsijunkite ir prisijunkite iš naujo)",
+            "Not authenticated": "❌ Turite prisijungti su Discord prieš pateikiant!",
+            "Discord authentication required": "❌ Prieš pateikiant anketą reikia prisijungti per Discord! Paspauskite mygtuką viršuje.",
             "Applications closed": "❌ Anketos šiuo metu uždarytos.",
             "User blacklisted": "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!",
             "LA": "🚫 Jau pateikėte anketą!",
