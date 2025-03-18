@@ -16,8 +16,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     };
 
-    // Initialize Supabase
-    const supabase = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.KEY);
+    // Supabase Client Setup
+    const supabase = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.KEY);
 
     // DOM Elements
     const elements = {
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     let state = {
         blacklist: [],
         lastStatus: null,
-        currentUser: null, // Modified: Memory-only Discord auth
+        currentUser: null, 
         updateInterval: null
     };
 
@@ -52,15 +52,15 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     async function fetchStatus() {
         try {
-            // Fetch status from Supabase (replace 'SystemStatus' with your table name)
             const { data, error } = await supabase
-                .from('SystemStatus')  // Your status table
-                .select('*')
-                .single();  // Assuming you're storing a single record for status
-
-            if (error) throw error;
+                .from('SystemStatus')
+                .select('status, blacklist')
+                .eq('id', 1)
+                .single();
             
-            updateApplicationState(data); 
+            if (error) throw new Error("Failed to fetch status from Supabase");
+
+            updateApplicationState(data);
         } catch (error) {
             console.error("❌ Status fetch error:", error);
             showErrorMessage("Failed to load application status");
@@ -110,99 +110,81 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // ======================
-    // ADMIN FUNCTIONS
-    // ======================
-
-    async function addToBlacklist() {
-        if (!authenticateAdmin()) return;
-
-        const newId = prompt("🚫 Enter User ID to blacklist:");
-        if (!newId || state.blacklist.includes(newId)) {
-            alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
-            return;
-        }
-
-        state.blacklist.push(newId);
-        await updateStatusInSupabase();
-        alert(`✅ User ID "${newId}" has been blacklisted.`);
-    }
-
-    async function removeFromBlacklist() {
-        if (!authenticateAdmin()) return;
-
-        const idToRemove = prompt("❌ Enter User ID to remove from blacklist:");
-        if (!idToRemove || !state.blacklist.includes(idToRemove)) {
-            alert(`⚠️ User ID "${idToRemove}" is not in the blacklist.`);
-            return;
-        }
-
-        state.blacklist = state.blacklist.filter(id => id !== idToRemove);
-        await updateStatusInSupabase();
-        alert(`✅ User ID "${idToRemove}" has been removed.`);
-    }
-
-    async function updateStatusInSupabase() {
+    async function validateUserRole() {
         try {
-            // Update the status and blacklist in Supabase
-            const { error } = await supabase
-                .from('SystemStatus')  // Replace with your table name
-                .upsert([{
-                    id: 1,  // Assuming you are using a single row with ID 1 for SystemStatus
-                    status: state.lastStatus,
-                    blacklist: state.blacklist
-                }]);
+            const response = await fetch("https://mmapi.onrender.com/api/check-role", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ userId: state.currentUser.id })
+            });
 
-            if (error) throw error;
-            console.log("✅ Supabase updated successfully");
+            if (!response.ok) throw new Error("Server error while checking role");
+            const data = await response.json();
+
+            if (data.hasRole) throw new Error("LA")
         } catch (error) {
-            console.error("❌ Error updating Supabase:", error);
-            throw error;
+            showErrorMessage(error.message);
+            throw error; // Prevents form submission
         }
     }
 
-    function authenticateAdmin() {
-        if (sessionStorage.getItem("adminAuth") === "true") return true;
-        return requestPassword();
+    function validateSubmissionPrerequisites() {
+        if (!state.currentUser) throw new Error("Not authenticated");
+        if (state.lastStatus === "offline") throw new Error("Applications closed");
+        if (state.blacklist.includes(state.currentUser.id)) throw new Error("User blacklisted");
     }
 
-    function requestPassword() {
-        const password = prompt("🔑 Enter admin password:");
-        if (password === "987412365") {
-            sessionStorage.setItem("adminAuth", "true");
-            alert("✅ Authentication successful!");
-            return true;
+    function gatherFormData() {
+        return {
+            userId: state.currentUser.id,
+            age: document.getElementById("age").value.trim(),
+            reason: document.getElementById("whyJoin").value.trim(),
+            pl: document.getElementById("pl").value.trim(),
+            kl: document.getElementById("kl").value.trim(),
+            pc: document.getElementById("pc").value.trim(),
+            isp: document.getElementById("isp").value.trim()
+        };
+    }
+
+    async function submitApplication(data) {
+        const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
+
+        const payload = {
+            variables: [
+                { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
+                { name: "age", variable: "{event_age}", value: `${data.age}` },
+                { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
+                { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
+                { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
+                { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
+                { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
+                { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
+            ]
+        };
+
+        try {
+            const response = await fetch("https://proxy-sxyf.onrender.com/send-to-botghost", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("BotGhost API error");
+            showSuccessMessage("✅ Aplikacija pateikta!");
+            elements.form.reset();
+        } catch (error) {
+            console.error("BotGhost webhook error:", error);
+            showErrorMessage("❌ Nepavyko išsiųsti aplikacijos, bandykite dar kartą. Jei nepavyks, susisiekite su AuraxoGT.");
         }
-        alert("❌ Invalid password!");
-        return false;
     }
 
     // ======================
-    // UI MANAGEMENT
-    // ======================
-
-    function updateStatusDisplay() {
-        if (state.lastStatus === "online") {
-            elements.statusDisplay.textContent = "✅ Atidaryta ✅";
-            elements.statusDisplay.className = "status-online";
-            elements.statusButton.textContent = "🟢 Uždaryti Anketas";
-        } else {
-            elements.statusDisplay.textContent = "❌ Uždaryta ❌";
-            elements.statusDisplay.className = "status-offline";
-            elements.statusButton.textContent = "🔴 Atidaryti Anketas";
-        }
-    }
-
-    async function toggleApplicationStatus() {
-        if (!authenticateAdmin()) return;
-        const newStatus = state.lastStatus === "online" ? "offline" : "online";
-        state.lastStatus = newStatus;
-        await updateStatusInSupabase();
-        updateStatusDisplay();
-    }
-
-    // ======================
-    // DISCORD INTEGRATION (MODIFIED)
+    // DISCORD INTEGRATION
     // ======================
 
     function handleDiscordAuth() {
@@ -214,71 +196,102 @@ document.addEventListener("DOMContentLoaded", async function () {
         window.location.href = authUrl.toString();
     }
 
+    async function fetchDiscordUser(token) {
+        try {
+            const [userData, presenceData] = await Promise.all([
+                fetch("https://discord.com/api/users/@me", {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                fetch(`https://discord.com/api/v10/users/@me/guilds/${CONFIG.DISCORD.GUILD_ID}/member`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+            ]);
+
+            const user = await userData.json();
+            const presence = await presenceData.json();
+
+            if (!user.id) throw new Error("Invalid user data");
+
+            const status = presence.presence?.status || 'offline';
+            const activities = presence.activities || [];
+            const mainActivity = activities.find(a => a.type === 0) || {};
+
+            return {
+                ...user,
+                avatar: `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`,
+                status: status,
+                activities: activities,
+                activity: {
+                    name: mainActivity.name || '',
+                    details: mainActivity.details || '',
+                    state: mainActivity.state || '',
+                    emoji: mainActivity.emoji?.name || '🎮'
+                }
+            };
+
+        } catch (error) {
+            console.error("Discord API error:", error);
+            return { status: 'offline', activities: [] };
+        }
+    }
+
+    async function updateDiscordPresence() {
+        if (!state.currentUser) return;
+
+        try {
+            const user = await fetchDiscordUser(localStorage.getItem('discord-token'));
+            if (user) state.currentUser = user;
+        } catch (error) {
+            console.error("Error updating Discord presence:", error);
+        }
+    }
+
     // ======================
-    // UTILITY FUNCTIONS
+    // UI & STATE MANAGEMENT
+    // ======================
+
+    function updateStatusDisplay() {
+        elements.statusDisplay.textContent = `Status: ${state.lastStatus}`;
+        elements.blacklistButton.disabled = state.lastStatus === "offline";
+        elements.removeButton.disabled = state.lastStatus !== "offline";
+    }
+
+    function clearMessages() {
+        elements.responseMessage.textContent = '';
+    }
+
+    function showErrorMessage(message) {
+        elements.responseMessage.textContent = `❌ ${message}`;
+    }
+
+    function showSuccessMessage(message) {
+        elements.responseMessage.textContent = `✅ ${message}`;
+    }
+
+    // ======================
+    // EVENT LISTENERS
     // ======================
 
     function initializeEventListeners() {
         elements.form.addEventListener("submit", handleFormSubmit);
-        elements.statusButton.addEventListener("click", toggleApplicationStatus);
-        elements.blacklistButton.addEventListener("click", addToBlacklist);
-        elements.removeButton.addEventListener("click", removeFromBlacklist);
         elements.discordButton.addEventListener("click", handleDiscordAuth);
     }
 
-    function checkAuthState() {
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
-        if (token) handleAuthRedirect(token);
-        updateUserInterface(state.currentUser);
-    }
+    // ======================
+    // INITIALIZATION
+    // ======================
+    async function checkAuthState() {
+        const token = localStorage.getItem("discord-token");
 
-    async function handleAuthRedirect(token) {
-        try {
-            const userData = await fetchDiscordUser(token);
-            state.currentUser = {
-                ...userData,
-                accessToken: token
-            };
-            window.history.replaceState({}, document.title, window.location.pathname);
-            updateUserInterface(state.currentUser);
-        } catch (error) {
-            showErrorMessage("Failed to authenticate with Discord");
+        if (token) {
+            const user = await fetchDiscordUser(token);
+            if (user.id) {
+                state.currentUser = user;
+                updateStatusDisplay();
+                console.log("✅ User authenticated successfully:", user);
+            } else {
+                console.log("❌ Discord authentication failed");
+            }
         }
-    }
-
-    // ======================
-    // DISCORD FUNCTIONS (MODIFIED)
-    // ======================
-
-    async function fetchDiscordUser(token) {
-        try {
-            const response = await fetch("https://discord.com/api/users/@me", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            const user = await response.json();
-            return user;
-        } catch (error) {
-            console.error("Discord API error:", error);
-            return {};
-        }
-    }
-
-    // ======================
-    // MESSAGE FUNCTIONS
-    // ======================
-
-    function showSuccessMessage(message) {
-        elements.responseMessage.textContent = message;
-        elements.responseMessage.style.color = "green";
-    }
-
-    function showErrorMessage(message) {
-        elements.responseMessage.textContent = message;
-        elements.responseMessage.style.color = "red";
-    }
-
-    function clearMessages() {
-        elements.responseMessage.textContent = "";
     }
 });
