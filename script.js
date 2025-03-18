@@ -186,7 +186,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             await fetchStatus();
             
             // Check if user is blacklisted - with conversion to string to be safe
-            if (state.blacklist(id => String(id) === String(state.currentUser.id))) {
+            if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
                 console.log("🚫 User is blacklisted, blocking submission.");
                 throw new Error("User blacklisted");
             }
