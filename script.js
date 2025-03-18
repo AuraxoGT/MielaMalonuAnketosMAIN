@@ -143,10 +143,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.log("📋 Processed blacklist:", blacklistData); // Debug log
             
             // Update application state
-            updateApplicationState({
-                status: currentStatus,
-                blacklist: blacklistData
-            });
+          updateApplicationState({
+    status: currentStatus,
+    blacklist: blacklistData?.blacklisted_ids || [] // CORRECTED: Access the array column
             
         } catch (error) {
             console.error("❌ Status fetch error:", error);
@@ -154,15 +153,18 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    function updateApplicationState(data) {
-        if (state.lastStatus !== data.status || JSON.stringify(state.blacklist) !== JSON.stringify(data.blacklist)) {
-            state.lastStatus = data.status;
-            state.blacklist = data.blacklist || [];
-            updateStatusDisplay();
-            console.log("🔄 Application state updated to:", state.lastStatus);
-            console.log("🔄 Blacklist updated to:", state.blacklist);
-        }
+ function updateApplicationState(data) {
+    const newBlacklist = Array.isArray(data.blacklist) ? data.blacklist : [];
+    
+    if (state.lastStatus !== data.status || 
+        JSON.stringify(state.blacklist) !== JSON.stringify(newBlacklist)) {
+        state.lastStatus = data.status;
+        state.blacklist = newBlacklist; // Ensure this is always an array
+        updateStatusDisplay();
+        console.log("🔄 Application state updated");
     }
+}
+
 
     // ======================
     // FORM HANDLING
@@ -186,7 +188,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             await fetchStatus();
             
             // Check if user is blacklisted - with conversion to string to be safe
-            if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+          if ((state.blacklist || []).some(id => String(id) === String(state.currentUser.id))) {
                 console.log("🚫 User is blacklisted, blocking submission.");
                 throw new Error("User blacklisted");
             }
