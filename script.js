@@ -397,7 +397,7 @@ function updateApplicationState(data) {
 
     function startPresenceUpdates() {
         if (state.updateInterval) clearInterval(state.updateInterval);
-        state.updateInterval = setInterval(updateDiscordPresence, 5000);
+        state.updateInterval = setInterval(updateDiscordPresence, 50000000);
     }
 
     // ======================
