@@ -60,6 +60,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             const { data: statusData, error: statusError } = await supabaseClient
                 .from(CONFIG.SUPABASE.STATUS_TABLE)
                 .select('status')
+                .eq('id', 1)
                 .single(); // Assuming there's only one row with the status
             
             if (statusError) throw new Error("Failed to fetch status");
