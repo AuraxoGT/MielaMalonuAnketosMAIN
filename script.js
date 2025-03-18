@@ -147,10 +147,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     status: currentStatus,
     blacklist: blacklistData?.blacklisted_ids || [] // CORRECTED: Access the array column
             
-        } catch (error) {
-            console.error("❌ Status fetch error:", error);
-            showErrorMessage("Failed to load application status. Check console for details.");
-        }
     }
 
  function updateApplicationState(data) {
