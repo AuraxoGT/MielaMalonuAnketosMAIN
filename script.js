@@ -450,6 +450,25 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
+    // MESSAGE HANDLING FUNCTIONS (ADDED)
+    // ======================
+
+    function clearMessages() {
+        elements.responseMessage.textContent = "";
+        elements.responseMessage.className = "";
+    }
+
+    function showErrorMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.className = "error-message";
+    }
+
+    function showSuccessMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.className = "success-message";
+    }
+
+    // ======================
     // UTILITY FUNCTIONS (MODIFIED)
     // ======================
 
@@ -529,7 +548,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     
     // Call this once to ensure applications are open
    
-
     function handleSubmissionError(error) {
         console.error("Submission error:", error);
         const message = {
