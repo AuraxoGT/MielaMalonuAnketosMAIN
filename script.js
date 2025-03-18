@@ -48,7 +48,54 @@ document.addEventListener("DOMContentLoaded", async function () {
     initializeEventListeners();
     checkAuthState();
     setInterval(fetchStatus, 5000);
+    await initializeDatabase(); // New: Make sure database is properly set up
     fetchStatus();
+
+    // ======================
+    // DATABASE INITIALIZATION
+    // ======================
+
+    async function initializeDatabase() {
+        try {
+            // Check if status record exists
+            const { data: statusData, error: statusError } = await supabaseClient
+                .from(CONFIG.SUPABASE.STATUS_TABLE)
+                .select('*')
+                .eq('id', 1);
+            
+            if (statusError) throw new Error("Failed to check status table");
+            
+            // If status record doesn't exist, create it
+            if (!statusData || statusData.length === 0) {
+                console.log("Creating initial status record...");
+                const { error: insertError } = await supabaseClient
+                    .from(CONFIG.SUPABASE.STATUS_TABLE)
+                    .insert({ id: 1, status: 'offline' });
+                
+                if (insertError) throw new Error("Failed to create status record");
+            }
+            
+            // Check if blacklist table is initialized
+            const { data: blData, error: blError } = await supabaseClient
+                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                .select('*')
+                .eq('id', 1);
+            
+            // If blacklist record with ID 1 doesn't exist, create it
+            if (!blData || blData.length === 0) {
+                console.log("Initializing blacklist record...");
+                const { error: blInsertError } = await supabaseClient
+                    .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                    .insert({ id: 1, blacklisted_ids: [] });
+                
+                if (blInsertError) throw new Error("Failed to initialize blacklist");
+            }
+            
+            console.log("✅ Database initialized successfully!");
+        } catch (error) {
+            console.error("Database initialization error:", error);
+        }
+    }
 
     // ======================
     // CORE FUNCTIONS
@@ -59,21 +106,29 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Fetch application status
             const { data: statusData, error: statusError } = await supabaseClient
                 .from(CONFIG.SUPABASE.STATUS_TABLE)
-                .select('status')
+                .select('*')
                 .eq('id', 1)
-                .single(); // Assuming there's only one row with the status
+                .single();
             
-            if (statusError) throw new Error("Failed to fetch status");
+            if (statusError) {
+                console.error("Status error details:", statusError);
+                throw new Error("Failed to fetch status");
+            }
             
-            // Fetch blacklist
+            // Fetch blacklist - MODIFIED to handle blacklist as an array in a single record
             const { data: blacklistData, error: blacklistError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                .select('user_id'); // Assuming user_id is the column name
+                .select('*')
+                .eq('id', 1)
+                .single();
             
-            if (blacklistError) throw new Error("Failed to fetch blacklist");
+            if (blacklistError) {
+                console.error("Blacklist error details:", blacklistError);
+                throw new Error("Failed to fetch blacklist");
+            }
             
-            // Extract user IDs from blacklist data
-            const blacklistIds = blacklistData.map(item => item.user_id);
+            // Get blacklisted IDs from the record
+            const blacklistIds = blacklistData?.blacklisted_ids || [];
             
             // Update application state
             updateApplicationState({
@@ -83,7 +138,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             
         } catch (error) {
             console.error("❌ Status fetch error:", error);
-            showErrorMessage("Failed to load application status");
+            showErrorMessage("Failed to load application status. Check console for details.");
         }
     }
 
@@ -303,7 +358,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
-    // ADMIN FUNCTIONS (MODIFIED FOR SUPABASE)
+    // ADMIN FUNCTIONS (MODIFIED FOR SUPABASE WITH BLACKLIST AS ARRAY)
     // ======================
 
     async function addToBlacklist() {
@@ -315,18 +370,23 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
 
+        // Add ID to local state
         state.blacklist.push(newId);
         
         try {
+            // Update the blacklist array in the database
             const { error } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                .insert({ user_id: newId });
+                .update({ blacklisted_ids: state.blacklist })
+                .eq('id', 1);
                 
             if (error) throw error;
             alert(`✅ User ID "${newId}" has been blacklisted.`);
         } catch (error) {
             console.error("Blacklist update error:", error);
             alert(`❌ Failed to blacklist user: ${error.message}`);
+            // Revert local state in case of failure
+            state.blacklist = state.blacklist.filter(id => id !== newId);
         }
     }
 
@@ -339,19 +399,26 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
 
+        // Save the original blacklist in case we need to revert
+        const originalBlacklist = [...state.blacklist];
+        
+        // Remove the ID from local state
         state.blacklist = state.blacklist.filter(id => id !== idToRemove);
         
         try {
+            // Update the blacklist array in the database
             const { error } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                .delete()
-                .eq('user_id', idToRemove);
+                .update({ blacklisted_ids: state.blacklist })
+                .eq('id', 1);
                 
             if (error) throw error;
-            alert(`✅ User ID "${idToRemove}" has been removed.`);
+            alert(`✅ User ID "${idToRemove}" has been removed from blacklist.`);
         } catch (error) {
             console.error("Blacklist update error:", error);
             alert(`❌ Failed to remove from blacklist: ${error.message}`);
+            // Revert local state in case of failure
+            state.blacklist = originalBlacklist;
         }
     }
 
@@ -414,16 +481,19 @@ document.addEventListener("DOMContentLoaded", async function () {
     async function toggleApplicationStatus() {
         if (!authenticateAdmin()) return;
         const newStatus = state.lastStatus === "online" ? "offline" : "online";
-        state.lastStatus = newStatus;
         
         try {
             const { error } = await supabaseClient
                 .from(CONFIG.SUPABASE.STATUS_TABLE)
                 .update({ status: newStatus })
-                .eq('id', 1); // Assuming there's a row with id=1
+                .eq('id', 1);
                 
             if (error) throw error;
+            
+            // Only update local state after successful database update
+            state.lastStatus = newStatus;
             updateStatusDisplay();
+            alert(`✅ Application status changed to ${newStatus.toUpperCase()}`);
         } catch (error) {
             console.error("Status update error:", error);
             showErrorMessage("Failed to update application status");
@@ -480,35 +550,39 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     async function fetchDiscordInvite(inviteCode, containerClass) {
-        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
-        const data = await response.json();
+        try {
+            const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+            const data = await response.json();
 
-        if (data.guild) {
-            const container = document.querySelector(`.${containerClass}`);
-            if (!container) return console.error("Container not found!");
+            if (data.guild) {
+                const container = document.querySelector(`.${containerClass}`);
+                if (!container) return console.error("Container not found!");
 
-            // Remove any existing invite before adding a new one
-            const oldInvite = container.querySelector(".discord-invite");
-            if (oldInvite) oldInvite.remove();
+                // Remove any existing invite before adding a new one
+                const oldInvite = container.querySelector(".discord-invite");
+                if (oldInvite) oldInvite.remove();
 
-            // Create the Discord invite HTML structure dynamically
-            const inviteHTML = `
-                <div class="discord-invite">
-                    <div class="invite-banner">
-                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
-                    </div>
-                    <div class="invite-content">
-                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
-                        <div class="server-info">
-                            <h3>${data.guild.name}</h3>
-                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                // Create the Discord invite HTML structure dynamically
+                const inviteHTML = `
+                    <div class="discord-invite">
+                        <div class="invite-banner">
+                            ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
                         </div>
-                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                        <div class="invite-content">
+                            <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                            <div class="server-info">
+                                <h3>${data.guild.name}</h3>
+                                <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                            </div>
+                            <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
 
-            container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
+                container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
+            }
+        } catch (error) {
+            console.error("Error fetching Discord invite:", error);
         }
     }
 
