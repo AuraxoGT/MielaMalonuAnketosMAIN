@@ -65,12 +65,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             if (statusError) throw new Error("Failed to check status table");
             
-            // If status record doesn't exist, create it
+            // If status record doesn't exist, create it with default "online" status
             if (!statusData || statusData.length === 0) {
                 console.log("Creating initial status record...");
                 const { error: insertError } = await supabaseClient
                     .from(CONFIG.SUPABASE.STATUS_TABLE)
-                    .insert({ id: 1, status: 'offline' });
+                    .insert({ id: 1, status: 'online' }); // Set default status to online
                 
                 if (insertError) throw new Error("Failed to create status record");
             }
@@ -115,6 +115,17 @@ document.addEventListener("DOMContentLoaded", async function () {
                 throw new Error("Failed to fetch status");
             }
             
+            // Force status to be "online" or "offline" only
+            let currentStatus = statusData.status;
+            if (currentStatus !== "online" && currentStatus !== "offline") {
+                currentStatus = "online"; // Default to online if invalid value
+                // Update database with correct value
+                await supabaseClient
+                    .from(CONFIG.SUPABASE.STATUS_TABLE)
+                    .update({ status: currentStatus })
+                    .eq('id', 1);
+            }
+            
             // Fetch blacklist - MODIFIED to handle blacklist as an array in a single record
             const { data: blacklistData, error: blacklistError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
@@ -132,7 +143,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             // Update application state
             updateApplicationState({
-                status: statusData.status,
+                status: currentStatus,
                 blacklist: blacklistIds
             });
             
@@ -147,7 +158,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             state.lastStatus = data.status;
             state.blacklist = data.blacklist || [];
             updateStatusDisplay();
-            console.log("🔄 Application state updated");
+            console.log("🔄 Application state updated to:", state.lastStatus);
         }
     }
 
@@ -499,6 +510,25 @@ document.addEventListener("DOMContentLoaded", async function () {
             showErrorMessage("Failed to update application status");
         }
     }
+
+    // Force update status to be online on page load (one-time fix)
+    async function forceStatusOnline() {
+        try {
+            const { error } = await supabaseClient
+                .from(CONFIG.SUPABASE.STATUS_TABLE)
+                .update({ status: "online" })
+                .eq('id', 1);
+                
+            if (error) throw error;
+            console.log("✅ Force updated status to ONLINE");
+            fetchStatus(); // Refresh the status display
+        } catch (error) {
+            console.error("Force status update error:", error);
+        }
+    }
+    
+    // Call this once to ensure applications are open
+    forceStatusOnline();
 
     function sanitizeInput(input) {
         return String(input)
