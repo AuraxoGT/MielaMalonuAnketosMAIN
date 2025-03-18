@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Configuration
     const CONFIG = {
         SUPABASE: {
-            URL: "https://smodsdsnswwtnbnmzhse.supabase.co/rest/v1",
+            URL: "https://smodsdsnswwtnbnmzhse.supabase.co", // FIXED: Removed "/rest/v1"
             API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtb2RzZHNuc3d3dG5ibm16aHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2MjUyOTAsImV4cCI6MjA1NzIwMTI5MH0.zMdjymIaGU66_y6X-fS8nKnrWgJjXgw7NgXPBIzVCiI",
             STATUS_TABLE: "Status",
             BLACKLIST_TABLE: "Blacklist"
@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     };
 
-    // Initialize Supabase client - FIXED LINE
+    // Initialize Supabase client
     const { createClient } = supabase;
     const supabaseClient = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.API_KEY);
     console.log("✅ Supabase client initialized!");
