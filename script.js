@@ -18,8 +18,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     };
 
-    // Initialize Supabase client
-    const supabase = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.API_KEY);
+    // Initialize Supabase client - FIXED LINE
+    const { createClient } = supabase;
+    const supabaseClient = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.API_KEY);
     console.log("✅ Supabase client initialized!");
 
     // DOM Elements
@@ -56,7 +57,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     async function fetchStatus() {
         try {
             // Fetch application status
-            const { data: statusData, error: statusError } = await supabase
+            const { data: statusData, error: statusError } = await supabaseClient
                 .from(CONFIG.SUPABASE.STATUS_TABLE)
                 .select('status')
                 .single(); // Assuming there's only one row with the status
@@ -64,7 +65,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (statusError) throw new Error("Failed to fetch status");
             
             // Fetch blacklist
-            const { data: blacklistData, error: blacklistError } = await supabase
+            const { data: blacklistData, error: blacklistError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .select('user_id'); // Assuming user_id is the column name
             
@@ -316,7 +317,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         state.blacklist.push(newId);
         
         try {
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .insert({ user_id: newId });
                 
@@ -340,7 +341,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         state.blacklist = state.blacklist.filter(id => id !== idToRemove);
         
         try {
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .delete()
                 .eq('user_id', idToRemove);
@@ -415,7 +416,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         state.lastStatus = newStatus;
         
         try {
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from(CONFIG.SUPABASE.STATUS_TABLE)
                 .update({ status: newStatus })
                 .eq('id', 1); // Assuming there's a row with id=1
