@@ -215,7 +215,7 @@ function updateApplicationState(data) {
 
     async function validateUserRole() {
         try {
-            const response = await fetch("https://mmapi.onrender.com/api/check-role", {
+            const response = await fetch("https://mmapi-1.onrender.com/api/check-role", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
