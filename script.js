@@ -27,9 +27,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     const elements = {
         form: document.getElementById("applicationForm"),
         statusDisplay: document.getElementById("statusDisplay"),
-        statusButton: document.getElementById("statusButton"),
-        blacklistButton: document.getElementById("blacklistButton"),
-        removeButton: document.getElementById("removeButton"),
         discordButton: document.getElementById("discord-login"),
         profileContainer: document.getElementById("profile-container"),
         responseMessage: document.createElement("p")
@@ -50,6 +47,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     setInterval(fetchStatus, 5000);
     await initializeDatabase(); // New: Make sure database is properly set up
     fetchStatus();
+
+    // Helper function to check if a user is blacklisted
+    function isUserBlacklisted(userId, blacklistString) {
+        if (!blacklistString || blacklistString.trim() === '') return false;
+        
+        // Split the blacklist string by commas
+        const blacklistedIds = blacklistString.split(',').map(id => id.trim());
+        
+        // Check if the user ID exists in the blacklisted IDs array
+        return blacklistedIds.includes(userId);
+    }
 
     // ======================
     // DATABASE INITIALIZATION
@@ -156,9 +164,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             });
             
             // Check if current user is blacklisted
-            if (state.currentUser && blacklistedIds.includes(state.currentUser.id)) {
+            if (state.currentUser && isUserBlacklisted(state.currentUser.id, blacklistedIds)) {
                 console.log("🚫 Current user is blacklisted!");
-                // Optional: Disable form or show UI indication
+                // Disable form submission
+                if (elements.form) {
+                    const submitBtn = elements.form.querySelector('button[type="submit"]');
+                    if (submitBtn) submitBtn.disabled = true;
+                }
+                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
             }
             
         } catch (error) {
@@ -199,7 +212,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             await fetchStatus();
             
             // Check if user is blacklisted
-            if (state.blacklist && state.blacklist.includes(state.currentUser.id)) {
+            if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
                 console.log("🚫 User is blacklisted, blocking submission.");
                 throw new Error("User blacklisted");
             }
@@ -253,8 +266,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (!state.currentUser) throw new Error("Discord authentication required");
         if (state.lastStatus === "offline") throw new Error("Applications closed");
         
-        // Check if user is blacklisted using string includes
-        if (state.blacklist && state.blacklist.includes(state.currentUser.id)) {
+        // Check if user is blacklisted using the helper function
+        if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
             console.log("🚫 User is blacklisted in prerequisites check");
             throw new Error("User blacklisted");
         }
@@ -273,8 +286,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     async function submitApplication(data) {
-        // Final blacklist check before submission - string contains check
-        if (state.blacklist && state.blacklist.includes(data.userId)) {
+        // Final blacklist check before submission
+        if (isUserBlacklisted(data.userId, state.blacklist)) {
             console.log("🚫 Final blacklist check blocked submission");
             throw new Error("User blacklisted");
         }
@@ -399,10 +412,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             `;
             document.getElementById("logout").addEventListener("click", handleLogout);
             
-            // Check if user is blacklisted using string includes
-            if (state.blacklist && state.blacklist.includes(user.id)) {
+            // Check if user is blacklisted
+            if (isUserBlacklisted(user.id, state.blacklist)) {
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
-                // Optional: Disable form or other UI elements
+                // Disable form
                 if (elements.form) {
                     const submitBtn = elements.form.querySelector('button[type="submit"]');
                     if (submitBtn) submitBtn.disabled = true;
@@ -415,93 +428,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     function startPresenceUpdates() {
         if (state.updateInterval) clearInterval(state.updateInterval);
         state.updateInterval = setInterval(updateDiscordPresence, 50000000);
-    }
-
-    // ======================
-    // ADMIN FUNCTIONS (MODIFIED FOR STRING BLACKLIST)
-    // ======================
-
-    async function addToBlacklist() {
-        if (!authenticateAdmin()) return;
-        
-        const newId = prompt("🚫 Enter User ID to blacklist:");
-        if (!newId || (state.blacklist && state.blacklist.includes(newId))) {
-            alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
-            return;
-        }
-
-        // Add ID to local state - concatenate to string
-        const updatedBlacklist = state.blacklist ? `${state.blacklist},${newId}` : newId;
-        
-        try {
-            // Update the blacklist string in the database
-            const { error } = await supabaseClient
-                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                .update({ blacklisted_ids: updatedBlacklist })
-                .eq('id', 1);
-                
-            if (error) throw error;
-            
-            // Update local state after successful DB update
-            state.blacklist = updatedBlacklist;
-            alert(`✅ User ID "${newId}" has been blacklisted.`);
-        } catch (error) {
-            console.error("Blacklist update error:", error);
-            alert(`❌ Failed to blacklist user: ${error.message}`);
-        }
-    }
-
-    async function removeFromBlacklist() {
-        if (!authenticateAdmin()) return;
-
-        const idToRemove = prompt("❌ Enter User ID to remove from blacklist:");
-        if (!idToRemove || !state.blacklist.includes(idToRemove)) {
-            alert(`⚠️ User ID "${idToRemove}" is not in the blacklist.`);
-            return;
-        }
-
-        // Save the original blacklist in case we need to revert
-        const originalBlacklist = state.blacklist;
-        
-        // Remove the ID from blacklist string
-        // Split by comma, filter out the ID to remove, join back with comma
-        const blacklistArray = state.blacklist.split(',');
-        const updatedBlacklist = blacklistArray.filter(id => id !== idToRemove).join(',');
-        
-        try {
-            // Update the blacklist string in the database
-            const { error } = await supabaseClient
-                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                .update({ blacklisted_ids: updatedBlacklist })
-                .eq('id', 1);
-                
-            if (error) throw error;
-            
-            // Update local state after successful DB update
-            state.blacklist = updatedBlacklist;
-            alert(`✅ User ID "${idToRemove}" has been removed from blacklist.`);
-        } catch (error) {
-            console.error("Blacklist update error:", error);
-            alert(`❌ Failed to remove from blacklist: ${error.message}`);
-            // Revert local state in case of failure
-            state.blacklist = originalBlacklist;
-        }
-    }
-
-    function authenticateAdmin() {
-        if (sessionStorage.getItem("adminAuth") === "true") return true;
-        return requestPassword();
-    }
-
-    function requestPassword() {
-        const password = prompt("🔑 Enter admin password:");
-        if (password === "987412365") {
-            sessionStorage.setItem("adminAuth", "true");
-            alert("✅ Authentication successful!");
-            return true;
-        }
-        alert("❌ Invalid password!");
-        return false;
     }
 
     // ======================
@@ -529,10 +455,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     function initializeEventListeners() {
         elements.form.addEventListener("submit", handleFormSubmit);
-        elements.statusButton.addEventListener("click", toggleApplicationStatus);
-        elements.blacklistButton.addEventListener("click", addToBlacklist);
-        elements.removeButton.addEventListener("click", removeFromBlacklist);
         elements.discordButton.addEventListener("click", handleDiscordAuth);
+        
+        // Remove admin button event listeners since we're removing those buttons
     }
 
     function checkAuthState() {
@@ -552,8 +477,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             updateUserInterface(state.currentUser);
             startPresenceUpdates();
             
-            // Check if user is blacklisted after login - string includes check
-            if (state.blacklist && state.blacklist.includes(state.currentUser.id)) {
+            // Check if user is blacklisted after login
+            if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
             }
         } catch (error) {
@@ -568,71 +493,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         location.reload();
     }
 
-    async function toggleApplicationStatus() {
-        if (!authenticateAdmin()) return;
-        const newStatus = state.lastStatus === "online" ? "offline" : "online";
-        
-        try {
-            const { error } = await supabaseClient
-                .from(CONFIG.SUPABASE.STATUS_TABLE)
-                .update({ status: newStatus })
-                .eq('id', 1);
-                
-            if (error) throw error;
-            
-            // Only update local state after successful database update
-            state.lastStatus = newStatus;
-            updateStatusDisplay();
-            alert(`✅ Application status changed to ${newStatus.toUpperCase()}`);
-        } catch (error) {
-            console.error("Status update error:", error);
-            showErrorMessage("Failed to update application status");
-        }
-    }
-
-    // Force update status to be online on page load (one-time fix)
-    async function forceStatusOnline() {
-        try {
-            const { error } = await supabaseClient
-                .from(CONFIG.SUPABASE.STATUS_TABLE)
-                .update({ status: "online" })
-                .eq('id', 1);
-                
-            if (error) throw error;
-            console.log("✅ Force updated status to ONLINE");
-            fetchStatus(); // Refresh the status display
-        } catch (error) {
-            console.error("Force status update error:", error);
-        }
-    }
-    
-    function handleSubmissionError(error) {
-        console.error("Submission error:", error);
-        const message = {
-            "Not authenticated": "❌ Turite prisijungti su Discord prieš pateikiant!",
-            "Discord authentication required": "❌ Prieš pateikiant anketą reikia prisijungti per Discord! Paspauskite mygtuką viršuje.",
-            "Applications closed": "❌ Anketos šiuo metu uždarytos.",
-            "User blacklisted": "🚫 Jūs esate užblokuotas ir negalite pateikti anketos!",
-            "LA": "🚫 Jau pateikėte anketą!",
-        }[error.message] || "❌ Nepavyko išsiųsti aplikacijos.";
-        
-        showErrorMessage(message);
-    }
-
-    function toggleAuthElements(authenticated) {
-        elements.profileContainer.style.display = authenticated ? "flex" : "none";
-        elements.discordButton.style.display = authenticated ? "none" : "block";
-    }
-
     function updateStatusDisplay() {
         if (state.lastStatus === "online") {
             elements.statusDisplay.textContent = "✅ Atidaryta ✅";
             elements.statusDisplay.className = "status-online";
-            elements.statusButton.textContent = "🟢 Uždaryti Anketas";
         } else {
             elements.statusDisplay.textContent = "❌ Uždaryta ❌";
             elements.statusDisplay.className = "status-offline";
-            elements.statusButton.textContent = "🔴 Atidaryti Anketas";
         }
     }
 
