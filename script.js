@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // State Management
     let state = {
-        blacklist: [],
+        blacklist: '',
         lastStatus: null,
         currentUser: null, // Modified: Memory-only Discord auth
         updateInterval: null
@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 console.log("Initializing blacklist record...");
                 const { error: blInsertError } = await supabaseClient
                     .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                    .insert({ id: 1, blacklisted_ids: [] });
+                    .insert({ id: 1, blacklisted_ids: '' });
                 
                 if (blInsertError) throw new Error("Failed to initialize blacklist");
             }
@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     .eq('id', 1);
             }
             
-            // Fetch blacklist - MODIFIED to handle blacklist data more robustly
+            // Fetch blacklist - Handle as string
             const { data: blacklistData, error: blacklistError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .select('*')
@@ -141,12 +141,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Debug: Log the raw blacklist data
             console.log("Raw blacklist data:", blacklistData);
             
-            // FIXED: Ensure blacklisted_ids is an array and properly extracted
-            let blacklistedIds = [];
+            // Get blacklist as string and use it directly
+            let blacklistedIds = '';
             if (blacklistData && blacklistData.blacklisted_ids) {
-                blacklistedIds = Array.isArray(blacklistData.blacklisted_ids) 
-                    ? blacklistData.blacklisted_ids 
-                    : [];
+                blacklistedIds = blacklistData.blacklisted_ids;
             }
             
             console.log("📋 Processed blacklist:", blacklistedIds); // Debug log
@@ -157,8 +155,8 @@ document.addEventListener("DOMContentLoaded", async function () {
                 blacklist: blacklistedIds
             });
             
-            // ADDED: Check if current user is blacklisted and update UI if needed
-            if (state.currentUser && blacklistedIds.some(id => String(id) === String(state.currentUser.id))) {
+            // Check if current user is blacklisted
+            if (state.currentUser && blacklistedIds.includes(state.currentUser.id)) {
                 console.log("🚫 Current user is blacklisted!");
                 // Optional: Disable form or show UI indication
             }
@@ -170,12 +168,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     function updateApplicationState(data) {
-        const newBlacklist = Array.isArray(data.blacklist) ? data.blacklist : [];
+        const newBlacklist = data.blacklist || '';
         
-        if (state.lastStatus !== data.status || 
-            JSON.stringify(state.blacklist) !== JSON.stringify(newBlacklist)) {
+        if (state.lastStatus !== data.status || state.blacklist !== newBlacklist) {
             state.lastStatus = data.status;
-            state.blacklist = newBlacklist; // Ensure this is always an array
+            state.blacklist = newBlacklist;
             updateStatusDisplay();
             console.log("🔄 Application state updated");
         }
@@ -201,8 +198,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Ensure we have latest blacklist before proceeding
             await fetchStatus();
             
-            // FIXED: Check if user is blacklisted with proper comparison
-            if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+            // Check if user is blacklisted
+            if (state.blacklist && state.blacklist.includes(state.currentUser.id)) {
                 console.log("🚫 User is blacklisted, blocking submission.");
                 throw new Error("User blacklisted");
             }
@@ -256,8 +253,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (!state.currentUser) throw new Error("Discord authentication required");
         if (state.lastStatus === "offline") throw new Error("Applications closed");
         
-        // FIXED: Properly check if current user is blacklisted
-        if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+        // Check if user is blacklisted using string includes
+        if (state.blacklist && state.blacklist.includes(state.currentUser.id)) {
             console.log("🚫 User is blacklisted in prerequisites check");
             throw new Error("User blacklisted");
         }
@@ -276,8 +273,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     async function submitApplication(data) {
-        // Final blacklist check before submission
-        if (state.blacklist.some(id => String(id) === String(data.userId))) {
+        // Final blacklist check before submission - string contains check
+        if (state.blacklist && state.blacklist.includes(data.userId)) {
             console.log("🚫 Final blacklist check blocked submission");
             throw new Error("User blacklisted");
         }
@@ -402,8 +399,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             `;
             document.getElementById("logout").addEventListener("click", handleLogout);
             
-            // ADDED: Check if user is blacklisted and update UI accordingly
-            if (state.blacklist.some(id => String(id) === String(user.id))) {
+            // Check if user is blacklisted using string includes
+            if (state.blacklist && state.blacklist.includes(user.id)) {
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
                 // Optional: Disable form or other UI elements
                 if (elements.form) {
@@ -421,35 +418,36 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
-    // ADMIN FUNCTIONS (MODIFIED FOR SUPABASE WITH BLACKLIST AS ARRAY)
+    // ADMIN FUNCTIONS (MODIFIED FOR STRING BLACKLIST)
     // ======================
 
     async function addToBlacklist() {
         if (!authenticateAdmin()) return;
         
         const newId = prompt("🚫 Enter User ID to blacklist:");
-        if (!newId || state.blacklist.includes(newId)) {
+        if (!newId || (state.blacklist && state.blacklist.includes(newId))) {
             alert(`⚠️ User ID "${newId}" is invalid or already blacklisted.`);
             return;
         }
 
-        // Add ID to local state
-        state.blacklist.push(newId);
+        // Add ID to local state - concatenate to string
+        const updatedBlacklist = state.blacklist ? `${state.blacklist},${newId}` : newId;
         
         try {
-            // Update the blacklist array in the database
+            // Update the blacklist string in the database
             const { error } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                .update({ blacklisted_ids: state.blacklist })
+                .update({ blacklisted_ids: updatedBlacklist })
                 .eq('id', 1);
                 
             if (error) throw error;
+            
+            // Update local state after successful DB update
+            state.blacklist = updatedBlacklist;
             alert(`✅ User ID "${newId}" has been blacklisted.`);
         } catch (error) {
             console.error("Blacklist update error:", error);
             alert(`❌ Failed to blacklist user: ${error.message}`);
-            // Revert local state in case of failure
-            state.blacklist = state.blacklist.filter(id => id !== newId);
         }
     }
 
@@ -463,19 +461,24 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
 
         // Save the original blacklist in case we need to revert
-        const originalBlacklist = [...state.blacklist];
+        const originalBlacklist = state.blacklist;
         
-        // Remove the ID from local state
-        state.blacklist = state.blacklist.filter(id => id !== idToRemove);
+        // Remove the ID from blacklist string
+        // Split by comma, filter out the ID to remove, join back with comma
+        const blacklistArray = state.blacklist.split(',');
+        const updatedBlacklist = blacklistArray.filter(id => id !== idToRemove).join(',');
         
         try {
-            // Update the blacklist array in the database
+            // Update the blacklist string in the database
             const { error } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                .update({ blacklisted_ids: state.blacklist })
+                .update({ blacklisted_ids: updatedBlacklist })
                 .eq('id', 1);
                 
             if (error) throw error;
+            
+            // Update local state after successful DB update
+            state.blacklist = updatedBlacklist;
             alert(`✅ User ID "${idToRemove}" has been removed from blacklist.`);
         } catch (error) {
             console.error("Blacklist update error:", error);
@@ -502,7 +505,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
-    // MESSAGE HANDLING FUNCTIONS (ADDED)
+    // MESSAGE HANDLING FUNCTIONS
     // ======================
 
     function clearMessages() {
@@ -521,7 +524,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // ======================
-    // UTILITY FUNCTIONS (MODIFIED)
+    // UTILITY FUNCTIONS
     // ======================
 
     function initializeEventListeners() {
@@ -549,8 +552,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             updateUserInterface(state.currentUser);
             startPresenceUpdates();
             
-            // ADDED: Check if user is blacklisted after login
-            if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+            // Check if user is blacklisted after login - string includes check
+            if (state.blacklist && state.blacklist.includes(state.currentUser.id)) {
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
             }
         } catch (error) {
