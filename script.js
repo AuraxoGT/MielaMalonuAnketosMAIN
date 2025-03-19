@@ -37,7 +37,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         blacklist: '',
         lastStatus: null,
         currentUser: null, // Modified: Memory-only Discord auth
-        updateInterval: null
+        updateInterval: null,
+        isSubmitting: false // Added to prevent multiple submissions
     };
 
     // Initialize
@@ -48,15 +49,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     await initializeDatabase(); // New: Make sure database is properly set up
     fetchStatus();
 
-    // Helper function to check if a user is blacklisted - ENHANCED with better debugging
+    // Helper function to check if a user is blacklisted - Simplified
     function isUserBlacklisted(userId, blacklistString) {
-        console.log("🔎 BLACKLIST CHECK:");
-        console.log(`  👤 Checking user ID: ${userId}`);
-        console.log(`  📋 Blacklist string: "${blacklistString}"`);
-        
         // Guard against empty blacklist
         if (!blacklistString || blacklistString.trim() === '') {
-            console.log("  ✅ Blacklist is empty, user is not blacklisted");
             return false;
         }
         
@@ -65,13 +61,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         // Split the blacklist string by commas
         const blacklistedIds = blacklistString.split(',').map(id => id.trim());
-        console.log(`  📊 Parsed blacklist IDs:`, blacklistedIds);
         
         // Check if the user ID exists in the blacklisted IDs array
-        const isBlacklisted = blacklistedIds.includes(userIdStr);
-        console.log(`  ${isBlacklisted ? '🚫 User IS blacklisted!' : '✅ User is NOT blacklisted'}`);
-        
-        return isBlacklisted;
+        return blacklistedIds.includes(userIdStr);
     }
 
     // ======================
@@ -112,8 +104,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                     .insert({ id: 1, blacklisted_ids: '' });
                 
                 if (blInsertError) throw new Error("Failed to initialize blacklist");
-            } else {
-                console.log("✅ Blacklist record exists:", blData[0]);
             }
             
             console.log("✅ Database initialized successfully!");
@@ -136,7 +126,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                 .single();
             
             if (statusError) {
-                console.error("Status error details:", statusError);
                 throw new Error("Failed to fetch status");
             }
             
@@ -151,7 +140,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     .eq('id', 1);
             }
             
-            // Fetch blacklist - ENHANCED with better debugging
+            // Fetch blacklist - Simplified
             const { data: blacklistData, error: blacklistError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .select('*')
@@ -159,75 +148,28 @@ document.addEventListener("DOMContentLoaded", async function () {
                 .single();
             
             if (blacklistError) {
-                console.error("Blacklist error details:", blacklistError);
                 throw new Error("Failed to fetch blacklist");
             }
             
-            // Debug: Log the raw blacklist data
-            console.log("📋 Raw blacklist data:", blacklistData);
-            
-            // Get blacklist as string and use it directly - ENHANCED with better error handling
-         let blacklistedIds = '';
-if (blacklistData) {
-    if (typeof blacklistData.blacklisted_ids === 'string') {
-        blacklistedIds = blacklistData.blacklisted_ids;
-    } else if (Array.isArray(blacklistData.blacklisted_ids)) {
-        blacklistedIds = blacklistData.blacklisted_ids.join(',');
-        console.log("📋 Converted array to string:", blacklistedIds);
-    } else if (Array.isArray(blacklistData.blacklist)) {
-        // Handle the case where it's coming as 'blacklist' array instead of 'blacklisted_ids'
-        blacklistedIds = blacklistData.blacklist.join(',');
-        console.log("📋 Converted 'blacklist' array to string:", blacklistedIds);
-    } else {
-        console.warn("⚠️ blacklisted_ids is not a string or array:", blacklistData);
-        // Try to convert to string if it's not null/undefined
-        if (blacklistData.blacklisted_ids !== null && blacklistData.blacklisted_ids !== undefined) {
-            blacklistedIds = String(blacklistData.blacklisted_ids);
-            console.log("⚠️ Forced conversion to string:", blacklistedIds);
-        }
-    }
-}
-
-            console.log("📋 Processed blacklist:", blacklistedIds);
+            // Process blacklist data
+            let blacklistedIds = '';
+            if (blacklistData) {
+                if (typeof blacklistData.blacklisted_ids === 'string') {
+                    blacklistedIds = blacklistData.blacklisted_ids;
+                } else if (Array.isArray(blacklistData.blacklisted_ids)) {
+                    blacklistedIds = blacklistData.blacklisted_ids.join(',');
+                } else if (Array.isArray(blacklistData.blacklist)) {
+                    blacklistedIds = blacklistData.blacklist.join(',');
+                } else if (blacklistData.blacklisted_ids !== null && blacklistData.blacklisted_ids !== undefined) {
+                    blacklistedIds = String(blacklistData.blacklisted_ids);
+                }
+            }
             
             // Update application state
             updateApplicationState({
                 status: currentStatus,
                 blacklist: blacklistedIds
             });
-            
-            // Check if current user is blacklisted - ENHANCED with better debugging
-            if (state.currentUser) {
-                console.log("👤 Current user available, checking blacklist status");
-                const isBlocked = isUserBlacklisted(state.currentUser.id, blacklistedIds);
-                
-                if (isBlocked) {
-                    console.log("🚫 Current user is blacklisted! Disabling form...");
-                    // Disable form submission
-                    if (elements.form) {
-                        const submitBtn = elements.form.querySelector('button[type="submit"]');
-                        if (submitBtn) {
-                            submitBtn.disabled = true;
-                            console.log("🔒 Submit button disabled");
-                        }
-                    }
-                    showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
-                } else {
-                    console.log("✅ User is not blacklisted, form should be enabled");
-                    // Re-enable form if it was disabled
-                    if (elements.form && state.lastStatus === "online") {
-                        const submitBtn = elements.form.querySelector('button[type="submit"]');
-                        if (submitBtn && submitBtn.disabled) {
-                            submitBtn.disabled = false;
-                            console.log("🔓 Submit button re-enabled");
-                            clearMessages(); // Clear the error message if it was there
-                        }
-                    }
-                }
-            } else {
-                console.log("ℹ️ No current user logged in, skipping blacklist check");
-            }
-            
         } catch (error) {
             console.error("❌ Status fetch error:", error);
             showErrorMessage("Failed to load application status. Check console for details.");
@@ -237,44 +179,39 @@ if (blacklistData) {
     function updateApplicationState(data) {
         const newBlacklist = data.blacklist || '';
         
-        // Log state changes for debugging
-        if (state.lastStatus !== data.status) {
-            console.log(`🔄 Status changed: ${state.lastStatus} -> ${data.status}`);
-        }
-        if (state.blacklist !== newBlacklist) {
-            console.log(`🔄 Blacklist changed: "${state.blacklist}" -> "${newBlacklist}"`);
-        }
-        
         if (state.lastStatus !== data.status || state.blacklist !== newBlacklist) {
             state.lastStatus = data.status;
             state.blacklist = newBlacklist;
             updateStatusDisplay();
-            console.log("🔄 Application state updated");
             
-            // Re-check blacklist status whenever the blacklist changes
-            if (state.currentUser) {
-                console.log("🔄 Re-checking blacklist status after state update");
-                const isBlocked = isUserBlacklisted(state.currentUser.id, state.blacklist);
-                
-                // Update UI based on blacklist status
-                handleBlacklistStatus(isBlocked);
-            }
+            // Update UI based on current state
+            updateFormState();
         }
     }
 
-    // New function to handle blacklist status changes
-    function handleBlacklistStatus(isBlacklisted) {
-        if (elements.form) {
-            const submitBtn = elements.form.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                if (isBlacklisted) {
-                    submitBtn.disabled = true;
-                    showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
-                } else if (state.lastStatus === "online") {
-                    submitBtn.disabled = false;
-                    clearMessages();
-                }
-            }
+    // Single function to update form state
+    function updateFormState() {
+        if (!elements.form) return;
+        
+        const submitBtn = elements.form.querySelector('button[type="submit"]');
+        if (!submitBtn) return;
+        
+        // Only enable if all conditions are met
+        const isLoggedIn = !!state.currentUser;
+        const isBlacklisted = isLoggedIn && isUserBlacklisted(state.currentUser.id, state.blacklist);
+        const isOnline = state.lastStatus === "online";
+        
+        submitBtn.disabled = !isLoggedIn || isBlacklisted || !isOnline || state.isSubmitting;
+        
+        // Handle messages
+        if (isBlacklisted) {
+            showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+        } else if (!isOnline) {
+            showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
+        } else if (!isLoggedIn) {
+            showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti prie Discord!");
+        } else {
+            clearMessages();
         }
     }
 
@@ -284,6 +221,11 @@ if (blacklistData) {
 
     async function handleFormSubmit(event) {
         event.preventDefault();
+        
+        // Prevent multiple submissions
+        if (state.isSubmitting) return;
+        state.isSubmitting = true;
+        
         clearMessages();
 
         const submitButton = event.target.querySelector('button[type="submit"]');
@@ -291,45 +233,49 @@ if (blacklistData) {
         submitButton.textContent = "Pateikiama...";
 
         try {
-            // First check if user is authenticated
-            if (!state.currentUser) {
-                throw new Error("Discord authentication required");
-            }
-
-            // Ensure we have latest blacklist before proceeding
-            await fetchStatus();
+            // Validate all requirements in one go
+            await validateAllRequirements();
             
-            // Check if user is blacklisted - ENHANCED with better debug logging
-            console.log("🔍 SUBMISSION CHECK: Verifying user is not blacklisted");
-            if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
-                console.log("🚫 User is blacklisted, blocking submission.");
-                throw new Error("User blacklisted");
-            } else {
-                console.log("✅ User is not blacklisted, proceeding with submission");
-            }
-            
-            await validateUserRole(); // Check role before proceeding
-            validateSubmissionPrerequisites();
+            // If validation passes, gather data and submit
             const formData = gatherFormData();
             await submitApplication(formData);
 
             submitButton.textContent = "Pateikta!";
-            setTimeout(() => {
-                submitButton.textContent = "Pateikti";
-                submitButton.disabled = false;
-            }, 3000);
-
+            showSuccessMessage("✅ Aplikacija pateikta!");
+            elements.form.reset();
+            
         } catch (error) {
             handleSubmissionError(error);
             submitButton.textContent = "Bandykite dar kartą";
+        } finally {
+            // Reset submission state after delay
             setTimeout(() => {
+                state.isSubmitting = false;
                 submitButton.textContent = "Pateikti";
                 submitButton.disabled = false;
+                updateFormState();
             }, 3000);
         }
     }
 
-    async function validateUserRole() {
+    // Combined validation function
+    async function validateAllRequirements() {
+        // Check authentication
+        if (!state.currentUser) {
+            throw new Error("Discord authentication required");
+        }
+        
+        // Check application status
+        if (state.lastStatus !== "online") {
+            throw new Error("Applications closed");
+        }
+        
+        // Check blacklist - single check
+        if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
+            throw new Error("User blacklisted");
+        }
+        
+        // Check user role
         try {
             const response = await fetch("https://mmapi-1.onrender.com/api/check-role", {
                 method: "POST",
@@ -342,28 +288,9 @@ if (blacklistData) {
             if (!response.ok) throw new Error("Server error while checking role");
             const data = await response.json();
 
-            if (data.hasRole) throw new Error("LA")
+            if (data.hasRole) throw new Error("LA");
         } catch (error) {
-            showErrorMessage(error.message);
-            throw error; // Prevents form submission
-        }
-    }
-
-    function validateSubmissionPrerequisites() {
-        console.log("🔎 Validating prerequisites...");
-        console.log("👤 Current user:", state.currentUser);
-        console.log("📋 Current blacklist:", state.blacklist);
-
-        if (!state.currentUser) throw new Error("Discord authentication required");
-        if (state.lastStatus === "offline") throw new Error("Applications closed");
-        
-        // Additional blacklist check - ENHANCED with better debugging
-        console.log("🔍 PREREQUISITE CHECK: Verifying user is not blacklisted");
-        if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
-            console.log("🚫 User is blacklisted in prerequisites check");
-            throw new Error("User blacklisted");
-        } else {
-            console.log("✅ User is not blacklisted in prerequisites check");
+            throw error;
         }
     }
 
@@ -380,15 +307,6 @@ if (blacklistData) {
     }
 
     async function submitApplication(data) {
-        // Final blacklist check before submission - ENHANCED with better debugging
-        console.log("🔍 FINAL CHECK: Verifying user is not blacklisted before submission");
-        if (isUserBlacklisted(data.userId, state.blacklist)) {
-            console.log("🚫 Final blacklist check blocked submission");
-            throw new Error("User blacklisted");
-        } else {
-            console.log("✅ Final blacklist check passed, proceeding with submission");
-        }
-
         const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
 
         const payload = {
@@ -404,23 +322,16 @@ if (blacklistData) {
             ]
         };
 
-        try {
-            const response = await fetch("https://proxy-sxyf.onrender.com/send-to-botghost", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
-                },
-                body: JSON.stringify(payload)
-            });
+        const response = await fetch("https://proxy-sxyf.onrender.com/send-to-botghost", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
+            },
+            body: JSON.stringify(payload)
+        });
 
-            if (!response.ok) throw new Error("BotGhost API error");
-            showSuccessMessage("✅ Aplikacija pateikta!");
-            elements.form.reset();
-        } catch (error) {
-            console.error("BotGhost webhook error:", error);
-            showErrorMessage("❌ Nepavyko išsiųsti aplikacijos, bandykite dar kartą. Jei nepavyks, susisiekite su AuraxoGT.");
-        }
+        if (!response.ok) throw new Error("BotGhost API error");
     }
 
     // ======================
@@ -508,46 +419,16 @@ if (blacklistData) {
                 <button id="logout">Log Out</button>
             `;
             document.getElementById("logout").addEventListener("click", handleLogout);
-            
-            // Check if user is blacklisted - ENHANCED with better debugging
-            console.log("🔍 UI UPDATE: Checking if user is blacklisted");
-            const isBlocked = isUserBlacklisted(user.id, state.blacklist);
-            
-            if (isBlocked) {
-                console.log("🚫 User is blacklisted, showing message and disabling form");
-                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
-                // Disable form
-                if (elements.form) {
-                    const submitBtn = elements.form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.disabled = true;
-                        console.log("🔒 Submit button disabled in UI update");
-                    }
-                }
-            } else {
-                console.log("✅ User is not blacklisted in UI update");
-            }
         }
+        
         toggleAuthElements(!!user);
+        updateFormState();
     }
 
     function toggleAuthElements(isLoggedIn) {
         // Hide login button when logged in, show profile when logged in
         elements.discordButton.style.display = isLoggedIn ? 'none' : 'block';
         elements.profileContainer.style.display = isLoggedIn ? 'flex' : 'none';
-        
-        // Optionally enable/disable form based on login status
-        if (elements.form) {
-            const submitBtn = elements.form.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                // Only enable the form if user is logged in and not blacklisted
-                const isBlacklisted = state.currentUser && isUserBlacklisted(state.currentUser.id, state.blacklist);
-                const formShouldBeEnabled = isLoggedIn && !isBlacklisted && state.lastStatus === "online";
-                
-                submitBtn.disabled = !formShouldBeEnabled;
-                console.log(`🔄 Form submit button ${formShouldBeEnabled ? 'enabled' : 'disabled'}`);
-            }
-        }
     }
 
     function startPresenceUpdates() {
@@ -567,13 +448,11 @@ if (blacklistData) {
     function showErrorMessage(message) {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "error-message";
-        console.log("⚠️ Error message displayed:", message);
     }
 
     function showSuccessMessage(message) {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "success-message";
-        console.log("✅ Success message displayed:", message);
     }
 
     // ======================
@@ -583,8 +462,6 @@ if (blacklistData) {
     function initializeEventListeners() {
         elements.form.addEventListener("submit", handleFormSubmit);
         elements.discordButton.addEventListener("click", handleDiscordAuth);
-        
-        // Remove admin button event listeners since we're removing those buttons
     }
 
     function checkAuthState() {
@@ -603,15 +480,7 @@ if (blacklistData) {
             window.history.replaceState({}, document.title, window.location.pathname);
             updateUserInterface(state.currentUser);
             startPresenceUpdates();
-            
-            // Check if user is blacklisted after login - ENHANCED with better debugging
-            console.log("🔍 AUTH REDIRECT: Checking if newly logged in user is blacklisted");
-            if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
-                console.log("🚫 Newly logged in user is blacklisted");
-                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
-            } else {
-                console.log("✅ Newly logged in user is not blacklisted");
-            }
+            updateFormState();
         } catch (error) {
             showErrorMessage("Failed to authenticate with Discord");
         }
@@ -638,7 +507,7 @@ if (blacklistData) {
         console.error("Submission error:", error);
         switch(error.message) {
             case "Discord authentication required":
-                showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti prie Discord!");
+                showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti su Discord!");
                 break;
             case "Applications closed":
                 showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
@@ -684,7 +553,7 @@ if (blacklistData) {
                     </div>
                 `;
 
-                container.insertAdjacentHTML("beforeend", inviteHTML); // Append instead of replacing
+                container.insertAdjacentHTML("beforeend", inviteHTML);
             }
         } catch (error) {
             console.error("Error fetching Discord invite:", error);
@@ -692,5 +561,5 @@ if (blacklistData) {
     }
 
     // Call function and pass the container class where you want the invite to be displayed
-    fetchDiscordInvite("mielamalonu", "rules-container"); // Change class if needed
+    fetchDiscordInvite("mielamalonu", "rules-container");
 });
