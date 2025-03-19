@@ -167,18 +167,27 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.log("📋 Raw blacklist data:", blacklistData);
             
             // Get blacklist as string and use it directly - ENHANCED with better error handling
-            let blacklistedIds = '';
-            if (blacklistData && typeof blacklistData.blacklisted_ids === 'string') {
-                blacklistedIds = blacklistData.blacklisted_ids;
-            } else if (blacklistData) {
-                console.warn("⚠️ blacklisted_ids is not a string or is missing:", blacklistData);
-                // Try to convert to string if it's not null/undefined
-                if (blacklistData.blacklisted_ids !== null && blacklistData.blacklisted_ids !== undefined) {
-                    blacklistedIds = String(blacklistData.blacklisted_ids);
-                    console.log("⚠️ Forced conversion to string:", blacklistedIds);
-                }
-            }
-            
+         let blacklistedIds = '';
+if (blacklistData) {
+    if (typeof blacklistData.blacklisted_ids === 'string') {
+        blacklistedIds = blacklistData.blacklisted_ids;
+    } else if (Array.isArray(blacklistData.blacklisted_ids)) {
+        blacklistedIds = blacklistData.blacklisted_ids.join(',');
+        console.log("📋 Converted array to string:", blacklistedIds);
+    } else if (Array.isArray(blacklistData.blacklist)) {
+        // Handle the case where it's coming as 'blacklist' array instead of 'blacklisted_ids'
+        blacklistedIds = blacklistData.blacklist.join(',');
+        console.log("📋 Converted 'blacklist' array to string:", blacklistedIds);
+    } else {
+        console.warn("⚠️ blacklisted_ids is not a string or array:", blacklistData);
+        // Try to convert to string if it's not null/undefined
+        if (blacklistData.blacklisted_ids !== null && blacklistData.blacklisted_ids !== undefined) {
+            blacklistedIds = String(blacklistData.blacklisted_ids);
+            console.log("⚠️ Forced conversion to string:", blacklistedIds);
+        }
+    }
+}
+
             console.log("📋 Processed blacklist:", blacklistedIds);
             
             // Update application state
