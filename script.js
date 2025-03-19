@@ -139,14 +139,29 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
             
             // Debug: Log the raw blacklist data
-            console.log("Raw blacklist data:", blacklistData);    
-            console.log("📋 Processed blacklist:", blacklistData); // Debug log
+            console.log("Raw blacklist data:", blacklistData);
+            
+            // FIXED: Ensure blacklisted_ids is an array and properly extracted
+            let blacklistedIds = [];
+            if (blacklistData && blacklistData.blacklisted_ids) {
+                blacklistedIds = Array.isArray(blacklistData.blacklisted_ids) 
+                    ? blacklistData.blacklisted_ids 
+                    : [];
+            }
+            
+            console.log("📋 Processed blacklist:", blacklistedIds); // Debug log
             
             // Update application state
             updateApplicationState({
                 status: currentStatus,
-                blacklist: blacklistData?.blacklisted_ids || []
+                blacklist: blacklistedIds
             });
+            
+            // ADDED: Check if current user is blacklisted and update UI if needed
+            if (state.currentUser && blacklistedIds.some(id => String(id) === String(state.currentUser.id))) {
+                console.log("🚫 Current user is blacklisted!");
+                // Optional: Disable form or show UI indication
+            }
             
         } catch (error) {
             console.error("❌ Status fetch error:", error);
@@ -154,17 +169,17 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-function updateApplicationState(data) {
-    const newBlacklist = Array.isArray(data.blacklist) ? data.blacklist : [];
-    
-    if (state.lastStatus !== data.status || 
-        JSON.stringify(state.blacklist) !== JSON.stringify(newBlacklist)) {
-        state.lastStatus = data.status;
-        state.blacklist = newBlacklist; // Ensure this is always an array
-        updateStatusDisplay();
-        console.log("🔄 Application state updated");
+    function updateApplicationState(data) {
+        const newBlacklist = Array.isArray(data.blacklist) ? data.blacklist : [];
+        
+        if (state.lastStatus !== data.status || 
+            JSON.stringify(state.blacklist) !== JSON.stringify(newBlacklist)) {
+            state.lastStatus = data.status;
+            state.blacklist = newBlacklist; // Ensure this is always an array
+            updateStatusDisplay();
+            console.log("🔄 Application state updated");
+        }
     }
-}
     // ======================
     // FORM HANDLING
     // ======================
@@ -186,8 +201,8 @@ function updateApplicationState(data) {
             // Ensure we have latest blacklist before proceeding
             await fetchStatus();
             
-            // Check if user is blacklisted - with conversion to string to be safe
-           if ((state.blacklist || []).some(id => String(id) === String(state.currentUser.id))) {
+            // FIXED: Check if user is blacklisted with proper comparison
+            if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
                 console.log("🚫 User is blacklisted, blocking submission.");
                 throw new Error("User blacklisted");
             }
@@ -241,8 +256,8 @@ function updateApplicationState(data) {
         if (!state.currentUser) throw new Error("Discord authentication required");
         if (state.lastStatus === "offline") throw new Error("Applications closed");
         
-        // Check blacklist with string conversion for safety
-        if ((state.blacklist || []).some(id => String(id) === String(state.data.userId))) {
+        // FIXED: Properly check if current user is blacklisted
+        if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
             console.log("🚫 User is blacklisted in prerequisites check");
             throw new Error("User blacklisted");
         }
@@ -386,6 +401,16 @@ function updateApplicationState(data) {
                 <button id="logout">Log Out</button>
             `;
             document.getElementById("logout").addEventListener("click", handleLogout);
+            
+            // ADDED: Check if user is blacklisted and update UI accordingly
+            if (state.blacklist.some(id => String(id) === String(user.id))) {
+                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                // Optional: Disable form or other UI elements
+                if (elements.form) {
+                    const submitBtn = elements.form.querySelector('button[type="submit"]');
+                    if (submitBtn) submitBtn.disabled = true;
+                }
+            }
         }
         toggleAuthElements(!!user);
     }
@@ -523,6 +548,11 @@ function updateApplicationState(data) {
             window.history.replaceState({}, document.title, window.location.pathname);
             updateUserInterface(state.currentUser);
             startPresenceUpdates();
+            
+            // ADDED: Check if user is blacklisted after login
+            if (state.blacklist.some(id => String(id) === String(state.currentUser.id))) {
+                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+            }
         } catch (error) {
             showErrorMessage("Failed to authenticate with Discord");
         }
