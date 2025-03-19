@@ -48,15 +48,30 @@ document.addEventListener("DOMContentLoaded", async function () {
     await initializeDatabase(); // New: Make sure database is properly set up
     fetchStatus();
 
-    // Helper function to check if a user is blacklisted
+    // Helper function to check if a user is blacklisted - ENHANCED with better debugging
     function isUserBlacklisted(userId, blacklistString) {
-        if (!blacklistString || blacklistString.trim() === '') return false;
+        console.log("🔎 BLACKLIST CHECK:");
+        console.log(`  👤 Checking user ID: ${userId}`);
+        console.log(`  📋 Blacklist string: "${blacklistString}"`);
+        
+        // Guard against empty blacklist
+        if (!blacklistString || blacklistString.trim() === '') {
+            console.log("  ✅ Blacklist is empty, user is not blacklisted");
+            return false;
+        }
+        
+        // Convert userId to string for consistent comparison
+        const userIdStr = String(userId).trim();
         
         // Split the blacklist string by commas
         const blacklistedIds = blacklistString.split(',').map(id => id.trim());
+        console.log(`  📊 Parsed blacklist IDs:`, blacklistedIds);
         
         // Check if the user ID exists in the blacklisted IDs array
-        return blacklistedIds.includes(userId);
+        const isBlacklisted = blacklistedIds.includes(userIdStr);
+        console.log(`  ${isBlacklisted ? '🚫 User IS blacklisted!' : '✅ User is NOT blacklisted'}`);
+        
+        return isBlacklisted;
     }
 
     // ======================
@@ -97,6 +112,8 @@ document.addEventListener("DOMContentLoaded", async function () {
                     .insert({ id: 1, blacklisted_ids: '' });
                 
                 if (blInsertError) throw new Error("Failed to initialize blacklist");
+            } else {
+                console.log("✅ Blacklist record exists:", blData[0]);
             }
             
             console.log("✅ Database initialized successfully!");
@@ -134,7 +151,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     .eq('id', 1);
             }
             
-            // Fetch blacklist - Handle as string
+            // Fetch blacklist - ENHANCED with better debugging
             const { data: blacklistData, error: blacklistError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .select('*')
@@ -147,15 +164,22 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
             
             // Debug: Log the raw blacklist data
-            console.log("Raw blacklist data:", blacklistData);
+            console.log("📋 Raw blacklist data:", blacklistData);
             
-            // Get blacklist as string and use it directly
+            // Get blacklist as string and use it directly - ENHANCED with better error handling
             let blacklistedIds = '';
-            if (blacklistData && blacklistData.blacklisted_ids) {
+            if (blacklistData && typeof blacklistData.blacklisted_ids === 'string') {
                 blacklistedIds = blacklistData.blacklisted_ids;
+            } else if (blacklistData) {
+                console.warn("⚠️ blacklisted_ids is not a string or is missing:", blacklistData);
+                // Try to convert to string if it's not null/undefined
+                if (blacklistData.blacklisted_ids !== null && blacklistData.blacklisted_ids !== undefined) {
+                    blacklistedIds = String(blacklistData.blacklisted_ids);
+                    console.log("⚠️ Forced conversion to string:", blacklistedIds);
+                }
             }
             
-            console.log("📋 Processed blacklist:", blacklistedIds); // Debug log
+            console.log("📋 Processed blacklist:", blacklistedIds);
             
             // Update application state
             updateApplicationState({
@@ -163,15 +187,36 @@ document.addEventListener("DOMContentLoaded", async function () {
                 blacklist: blacklistedIds
             });
             
-            // Check if current user is blacklisted
-            if (state.currentUser && isUserBlacklisted(state.currentUser.id, blacklistedIds)) {
-                console.log("🚫 Current user is blacklisted!");
-                // Disable form submission
-                if (elements.form) {
-                    const submitBtn = elements.form.querySelector('button[type="submit"]');
-                    if (submitBtn) submitBtn.disabled = true;
+            // Check if current user is blacklisted - ENHANCED with better debugging
+            if (state.currentUser) {
+                console.log("👤 Current user available, checking blacklist status");
+                const isBlocked = isUserBlacklisted(state.currentUser.id, blacklistedIds);
+                
+                if (isBlocked) {
+                    console.log("🚫 Current user is blacklisted! Disabling form...");
+                    // Disable form submission
+                    if (elements.form) {
+                        const submitBtn = elements.form.querySelector('button[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.disabled = true;
+                            console.log("🔒 Submit button disabled");
+                        }
+                    }
+                    showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                } else {
+                    console.log("✅ User is not blacklisted, form should be enabled");
+                    // Re-enable form if it was disabled
+                    if (elements.form && state.lastStatus === "online") {
+                        const submitBtn = elements.form.querySelector('button[type="submit"]');
+                        if (submitBtn && submitBtn.disabled) {
+                            submitBtn.disabled = false;
+                            console.log("🔓 Submit button re-enabled");
+                            clearMessages(); // Clear the error message if it was there
+                        }
+                    }
                 }
-                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+            } else {
+                console.log("ℹ️ No current user logged in, skipping blacklist check");
             }
             
         } catch (error) {
@@ -183,13 +228,47 @@ document.addEventListener("DOMContentLoaded", async function () {
     function updateApplicationState(data) {
         const newBlacklist = data.blacklist || '';
         
+        // Log state changes for debugging
+        if (state.lastStatus !== data.status) {
+            console.log(`🔄 Status changed: ${state.lastStatus} -> ${data.status}`);
+        }
+        if (state.blacklist !== newBlacklist) {
+            console.log(`🔄 Blacklist changed: "${state.blacklist}" -> "${newBlacklist}"`);
+        }
+        
         if (state.lastStatus !== data.status || state.blacklist !== newBlacklist) {
             state.lastStatus = data.status;
             state.blacklist = newBlacklist;
             updateStatusDisplay();
             console.log("🔄 Application state updated");
+            
+            // Re-check blacklist status whenever the blacklist changes
+            if (state.currentUser) {
+                console.log("🔄 Re-checking blacklist status after state update");
+                const isBlocked = isUserBlacklisted(state.currentUser.id, state.blacklist);
+                
+                // Update UI based on blacklist status
+                handleBlacklistStatus(isBlocked);
+            }
         }
     }
+
+    // New function to handle blacklist status changes
+    function handleBlacklistStatus(isBlacklisted) {
+        if (elements.form) {
+            const submitBtn = elements.form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                if (isBlacklisted) {
+                    submitBtn.disabled = true;
+                    showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                } else if (state.lastStatus === "online") {
+                    submitBtn.disabled = false;
+                    clearMessages();
+                }
+            }
+        }
+    }
+
     // ======================
     // FORM HANDLING
     // ======================
@@ -211,10 +290,13 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Ensure we have latest blacklist before proceeding
             await fetchStatus();
             
-            // Check if user is blacklisted
+            // Check if user is blacklisted - ENHANCED with better debug logging
+            console.log("🔍 SUBMISSION CHECK: Verifying user is not blacklisted");
             if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
                 console.log("🚫 User is blacklisted, blocking submission.");
                 throw new Error("User blacklisted");
+            } else {
+                console.log("✅ User is not blacklisted, proceeding with submission");
             }
             
             await validateUserRole(); // Check role before proceeding
@@ -266,10 +348,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (!state.currentUser) throw new Error("Discord authentication required");
         if (state.lastStatus === "offline") throw new Error("Applications closed");
         
-        // Check if user is blacklisted using the helper function
+        // Additional blacklist check - ENHANCED with better debugging
+        console.log("🔍 PREREQUISITE CHECK: Verifying user is not blacklisted");
         if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
             console.log("🚫 User is blacklisted in prerequisites check");
             throw new Error("User blacklisted");
+        } else {
+            console.log("✅ User is not blacklisted in prerequisites check");
         }
     }
 
@@ -286,10 +371,13 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     async function submitApplication(data) {
-        // Final blacklist check before submission
+        // Final blacklist check before submission - ENHANCED with better debugging
+        console.log("🔍 FINAL CHECK: Verifying user is not blacklisted before submission");
         if (isUserBlacklisted(data.userId, state.blacklist)) {
             console.log("🚫 Final blacklist check blocked submission");
             throw new Error("User blacklisted");
+        } else {
+            console.log("✅ Final blacklist check passed, proceeding with submission");
         }
 
         const appId = `${state.currentUser.id.slice(0, 16)}-${Date.now()}`;
@@ -412,14 +500,23 @@ document.addEventListener("DOMContentLoaded", async function () {
             `;
             document.getElementById("logout").addEventListener("click", handleLogout);
             
-            // Check if user is blacklisted
-            if (isUserBlacklisted(user.id, state.blacklist)) {
+            // Check if user is blacklisted - ENHANCED with better debugging
+            console.log("🔍 UI UPDATE: Checking if user is blacklisted");
+            const isBlocked = isUserBlacklisted(user.id, state.blacklist);
+            
+            if (isBlocked) {
+                console.log("🚫 User is blacklisted, showing message and disabling form");
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
                 // Disable form
                 if (elements.form) {
                     const submitBtn = elements.form.querySelector('button[type="submit"]');
-                    if (submitBtn) submitBtn.disabled = true;
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        console.log("🔒 Submit button disabled in UI update");
+                    }
                 }
+            } else {
+                console.log("✅ User is not blacklisted in UI update");
             }
         }
         toggleAuthElements(!!user);
@@ -436,7 +533,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (submitBtn) {
                 // Only enable the form if user is logged in and not blacklisted
                 const isBlacklisted = state.currentUser && isUserBlacklisted(state.currentUser.id, state.blacklist);
-                submitBtn.disabled = !isLoggedIn || isBlacklisted;
+                const formShouldBeEnabled = isLoggedIn && !isBlacklisted && state.lastStatus === "online";
+                
+                submitBtn.disabled = !formShouldBeEnabled;
+                console.log(`🔄 Form submit button ${formShouldBeEnabled ? 'enabled' : 'disabled'}`);
             }
         }
     }
@@ -458,11 +558,13 @@ document.addEventListener("DOMContentLoaded", async function () {
     function showErrorMessage(message) {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "error-message";
+        console.log("⚠️ Error message displayed:", message);
     }
 
     function showSuccessMessage(message) {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "success-message";
+        console.log("✅ Success message displayed:", message);
     }
 
     // ======================
@@ -493,9 +595,13 @@ document.addEventListener("DOMContentLoaded", async function () {
             updateUserInterface(state.currentUser);
             startPresenceUpdates();
             
-            // Check if user is blacklisted after login
+            // Check if user is blacklisted after login - ENHANCED with better debugging
+            console.log("🔍 AUTH REDIRECT: Checking if newly logged in user is blacklisted");
             if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
+                console.log("🚫 Newly logged in user is blacklisted");
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+            } else {
+                console.log("✅ Newly logged in user is not blacklisted");
             }
         } catch (error) {
             showErrorMessage("Failed to authenticate with Discord");
@@ -532,7 +638,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
                 break;
             case "LA":
-                showErrorMessage("❌ Jūs jau turite LA rolę!");
+                showErrorMessage("❌ Jūs jau esate užpildęs anketa!");
                 break;
             default:
                 showErrorMessage("❌ Įvyko klaida pateikiant anketą. Bandykite dar kartą.");
