@@ -425,6 +425,22 @@ document.addEventListener("DOMContentLoaded", async function () {
         toggleAuthElements(!!user);
     }
 
+    function toggleAuthElements(isLoggedIn) {
+        // Hide login button when logged in, show profile when logged in
+        elements.discordButton.style.display = isLoggedIn ? 'none' : 'block';
+        elements.profileContainer.style.display = isLoggedIn ? 'flex' : 'none';
+        
+        // Optionally enable/disable form based on login status
+        if (elements.form) {
+            const submitBtn = elements.form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                // Only enable the form if user is logged in and not blacklisted
+                const isBlacklisted = state.currentUser && isUserBlacklisted(state.currentUser.id, state.blacklist);
+                submitBtn.disabled = !isLoggedIn || isBlacklisted;
+            }
+        }
+    }
+
     function startPresenceUpdates() {
         if (state.updateInterval) clearInterval(state.updateInterval);
         state.updateInterval = setInterval(updateDiscordPresence, 50000000);
@@ -500,6 +516,26 @@ document.addEventListener("DOMContentLoaded", async function () {
         } else {
             elements.statusDisplay.textContent = "❌ Uždaryta ❌";
             elements.statusDisplay.className = "status-offline";
+        }
+    }
+
+    function handleSubmissionError(error) {
+        console.error("Submission error:", error);
+        switch(error.message) {
+            case "Discord authentication required":
+                showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti prie Discord!");
+                break;
+            case "Applications closed":
+                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
+                break;
+            case "User blacklisted":
+                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                break;
+            case "LA":
+                showErrorMessage("❌ Jūs jau turite LA rolę!");
+                break;
+            default:
+                showErrorMessage("❌ Įvyko klaida pateikiant anketą. Bandykite dar kartą.");
         }
     }
 
