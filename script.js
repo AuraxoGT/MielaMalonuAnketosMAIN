@@ -242,7 +242,7 @@ function updateApplicationState(data) {
         if (state.lastStatus === "offline") throw new Error("Applications closed");
         
         // Check blacklist with string conversion for safety
-        if ((state.blacklist || []).some(id => String(id) === String(state.currentUser.id))) {
+        if ((state.blacklist || []).some(id => String(id) === String(state.data.userId))) {
             console.log("🚫 User is blacklisted in prerequisites check");
             throw new Error("User blacklisted");
         }
