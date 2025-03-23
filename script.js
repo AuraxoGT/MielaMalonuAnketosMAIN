@@ -322,7 +322,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             ]
         };
 
-        const response = await fetch("https://proxy-zzi2.onrender.com", {
+        const response = await fetch("https://proxy-zzi2.onrender.com/send-to-botghost", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
