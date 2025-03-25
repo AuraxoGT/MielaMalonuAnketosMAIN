@@ -25,8 +25,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     const elements = {
         form: document.getElementById("applicationForm"),
         statusDisplay: document.getElementById("statusDisplay"),
-        responseMessage: document.createElement("p"),
-        submitButton: document.getElementById("submitButton")
+        discordButton: document.getElementById("discord-login"),
+        profileContainer: document.getElementById("profile-container"),
+        submitButton: document.getElementById("submitButton"),
+        responseMessage: document.createElement("p")
     };
 
     // State Management
@@ -34,78 +36,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         blacklist: '',
         lastStatus: null,
         currentUser: null,
+        updateInterval: null,
         isSubmitting: false,
-        lastSubmissionTime: 0,
-        isButtonLoading: false
+        lastSubmissionTime: 0
     };
-
-    // Prevent default behaviors on input fields
-    function setupInputProtection() {
-        const inputs = elements.form.querySelectorAll('input, textarea');
-        inputs.forEach(input => {
-            // Remove any existing event listeners
-            const oldInput = input.cloneNode(true);
-            input.parentNode.replaceChild(oldInput, input);
-
-            // Add minimal event listener to prevent unwanted submissions
-            oldInput.addEventListener('keydown', function(e) {
-                // Prevent form submission on Enter key
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                }
-            });
-        });
-    }
-
-    // Input Validation
-    function validateForm() {
-        const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
-        for (let fieldId of requiredFields) {
-            const field = document.getElementById(fieldId);
-            if (!field || field.value.trim() === '') {
-                showErrorMessage(`❌ Prašome užpildyti visus laukus!`);
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Restore Form Data from Local Storage
-    function restoreFormData() {
-        const savedFormData = JSON.parse(localStorage.getItem('formData') || '{}');
-        const formFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
-        
-        formFields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field && savedFormData[fieldId]) {
-                field.value = savedFormData[fieldId];
-            }
-        });
-    }
-
-    // Save Form Data to Local Storage
-    function saveFormData() {
-        const formData = {
-            age: document.getElementById('age').value,
-            whyJoin: document.getElementById('whyJoin').value,
-            pl: document.getElementById('pl').value,
-            kl: document.getElementById('kl').value,
-            pc: document.getElementById('pc').value,
-            isp: document.getElementById('isp').value
-        };
-        localStorage.setItem('formData', JSON.stringify(formData));
-    }
-
-    // Clear Saved Form Data
-    function clearSavedFormData() {
-        localStorage.removeItem('formData');
-        localStorage.removeItem('discordToken');
-    }
 
     // Database Initialization
     async function initializeDatabase() {
         try {
-            // Check and initialize status table
+            // Check status table
             const { data: statusData, error: statusError } = await supabaseClient
                 .from(CONFIG.SUPABASE.STATUS_TABLE)
                 .select('*')
@@ -121,7 +60,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 if (insertError) throw new Error("Failed to create status record");
             }
             
-            // Check and initialize blacklist table
+            // Check blacklist table
             const { data: blData, error: blError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .select('*')
@@ -152,6 +91,16 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             if (statusError) throw new Error("Failed to fetch status");
             
+            // Ensure valid status
+            let currentStatus = statusData.status;
+            if (currentStatus !== "online" && currentStatus !== "offline") {
+                currentStatus = "online";
+                await supabaseClient
+                    .from(CONFIG.SUPABASE.STATUS_TABLE)
+                    .update({ status: currentStatus })
+                    .eq('id', 1);
+            }
+            
             // Fetch blacklist
             const { data: blacklistData, error: blacklistError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
@@ -161,12 +110,36 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             if (blacklistError) throw new Error("Failed to fetch blacklist");
             
-            // Update state
-            state.lastStatus = statusData.status;
-            state.blacklist = blacklistData.blacklisted_ids || '';
-
-            // Update UI
-            updateStatusDisplay();
+            // Robust blacklist parsing
+            let blacklistedIds = '';
+            if (blacklistData && blacklistData.blacklisted_ids) {
+                if (typeof blacklistData.blacklisted_ids === 'string') {
+                    blacklistedIds = blacklistData.blacklisted_ids;
+                } else if (Array.isArray(blacklistData.blacklisted_ids)) {
+                    blacklistedIds = blacklistData.blacklisted_ids.join(',');
+                } else {
+                    blacklistedIds = String(blacklistData.blacklisted_ids);
+                }
+            }
+            
+            // Comprehensive state update check
+            const statusChanged = state.lastStatus !== currentStatus;
+            const blacklistChanged = state.blacklist !== blacklistedIds;
+            
+            // Update state only if something has changed
+            if (statusChanged || blacklistChanged) {
+                state.lastStatus = currentStatus;
+                state.blacklist = blacklistedIds;
+                
+                // Update UI components
+                updateStatusDisplay();
+                updateFormState();
+                
+                console.log("Status or Blacklist Updated:", {
+                    status: currentStatus,
+                    blacklist: blacklistedIds
+                });
+            }
         } catch (error) {
             console.error("❌ Status fetch error:", error);
             showErrorMessage("Failed to load application status.");
@@ -182,6 +155,83 @@ document.addEventListener("DOMContentLoaded", async function () {
             elements.statusDisplay.textContent = "❌ Uždaryta ❌";
             elements.statusDisplay.className = "status-offline";
         }
+    }
+
+    // Input Protection
+    function setupInputProtection() {
+        const inputs = elements.form.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            // Remove any existing event listeners
+            const oldInput = input.cloneNode(true);
+            input.parentNode.replaceChild(oldInput, input);
+
+            // Add minimal event listener to prevent unwanted submissions
+            oldInput.addEventListener('keydown', function(e) {
+                // Prevent form submission on Enter key
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                }
+            });
+        });
+    }
+
+    // Input Validation
+    function validateForm() {
+        const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
+        for (let fieldId of requiredFields) {
+            const field = document.getElementById(fieldId);
+            if (!field || field.value.trim() === '') {
+                showErrorMessage(`❌ Prašome užpildyti visus laukus!`);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Check if user is blacklisted
+    function isUserBlacklisted(userId) {
+        if (!state.blacklist) return false;
+        
+        const userIdStr = String(userId).trim();
+        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
+        
+        return blacklistedIds.includes(userIdStr);
+    }
+
+    // Update Form State
+    function updateFormState() {
+        if (!elements.form) return;
+        
+        const submitBtn = elements.submitButton;
+        if (!submitBtn) return;
+        
+        // Only enable if all conditions are met
+        const isLoggedIn = !!state.currentUser;
+        const isBlacklisted = isLoggedIn && isUserBlacklisted(state.currentUser.id);
+        const isOnline = state.lastStatus === "online";
+        
+        submitBtn.disabled = !isLoggedIn || isBlacklisted || !isOnline || state.isSubmitting;
+        
+        // Handle messages
+        if (isBlacklisted) {
+            showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+        } else if (!isOnline) {
+            showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
+        } else if (!isLoggedIn) {
+            showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti!");
+        } else {
+            clearMessages();
+        }
+    }
+
+    // Discord Authentication
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
     }
 
     // Fetch Discord User
@@ -212,16 +262,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Check if user is blacklisted
-    function isUserBlacklisted(userId) {
-        if (!state.blacklist) return false;
-        
-        const userIdStr = String(userId).trim();
-        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
-        
-        return blacklistedIds.includes(userIdStr);
-    }
-
     // Check Role Requirement
     async function checkRoleRequirement() {
         try {
@@ -249,9 +289,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         state.isSubmitting = true;
 
         try {
-            // Clear saved form data on submission attempt
-            clearSavedFormData();
-
             // Check role requirement
             await checkRoleRequirement();
 
@@ -302,20 +339,16 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             // Reset form
             elements.form.reset();
- setTimeout(() => {
-            window.location.href = "https://anketa.mielamalonu.com";
-        }, 5000);
+
+            // Redirect after 5 seconds
+            setTimeout(() => {
+                window.location.href = "https://anketa.mielamalonu.com";
+            }, 5000);
 
         } catch (error) {
             handleSubmissionError(error);
         } finally {
             state.isSubmitting = false;
-            
-            // Remove loading animation
-            if (elements.submitButton) {
-                elements.submitButton.classList.remove('button-loading');
-                state.isButtonLoading = false;
-            }
         }
     }
 
@@ -354,6 +387,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                 accessToken: token
             };
 
+            // Update form state
+            updateFormState();
+
             // Submit application
             await submitApplication();
 
@@ -363,12 +399,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             // Redirect to main page on error
             window.location.href = "https://anketa.mielamalonu.com";
-        } finally {
-            // Remove loading state
-            if (elements.submitButton) {
-                elements.submitButton.classList.remove('button-loading');
-                state.isButtonLoading = false;
-            }
         }
     }
 
@@ -378,11 +408,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                       localStorage.getItem('discordToken');
         
         if (token) {
-            // Add loading to button on redirect
-            if (elements.submitButton) {
-                elements.submitButton.classList.add('button-loading');
-                state.isButtonLoading = true;
-            }
             handleAuthRedirect(token);
         }
     }
@@ -402,31 +427,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Validate form
             if (!validateForm()) return;
 
-            // Add loading state to button
-            if (elements.submitButton) {
-                elements.submitButton.classList.add('button-loading');
-                state.isButtonLoading = true;
-            }
-
-            // Save form data
-            saveFormData();
-
             // Start Discord authentication
             handleDiscordAuth();
         });
 
         // Update form reference
         elements.form = oldForm;
-    }
-
-    // Initiate Discord Authentication
-    function handleDiscordAuth() {
-        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
-        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
-        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
-        authUrl.searchParams.append("response_type", "token");
-        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
-        window.location.href = authUrl.toString();
     }
 
     // Show Success Message
@@ -446,27 +452,54 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Handle Submission Error
     function handleSubmissionError(error) {
         console.error("Submission error:", error);
-        
-        // Reset button loading state
-        if (elements.submitButton) {
-            elements.submitButton.classList.remove('button-loading');
-            state.isButtonLoading = false;
-        }
 
         switch(error.message) {
             case "LA":
                 showErrorMessage("❌ Jūs jau esate užpildęs anketą!");
-                // Redirect to main page
-                setTimeout(() => {
-                    window.location.href = "https://anketa.mielamalonu.com";
-                }, 5000);
                 break;
             default:
                 showErrorMessage("❌ Įvyko klaida pateikiant anketą. Bandykite dar kartą.");
-                // Redirect to main page
-                setTimeout(() => {
-                    window.location.href = "https://anketa.mielamalonu.com";
-                }, 5000);
+        }
+
+        // Redirect to main page
+        setTimeout(() => {
+            window.location.href = "https://anketa.mielamalonu.com";
+        }, 5000);
+    }
+
+    // Discord Invite Fetcher
+    async function fetchDiscordInvite(inviteCode, containerClass) {
+        try {
+            const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+            const data = await response.json();
+            if (data.guild) {
+                const container = document.querySelector(`.${containerClass}`);
+                if (!container) return console.error("Container not found!");
+                
+                // Remove any existing invite before adding a new one
+                const oldInvite = container.querySelector(".discord-invite");
+                if (oldInvite) oldInvite.remove();
+                
+                // Create the Discord invite HTML structure dynamically
+                const inviteHTML = `
+                    <div class="discord-invite">
+                        <div class="invite-banner">
+                            ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
+                        </div>
+                        <div class="invite-content">
+                            <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                            <div class="server-info">
+                                <h3>${data.guild.name}</h3>
+                                <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                            </div>
+                            <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML("beforeend", inviteHTML);
+            }
+        } catch (error) {
+            console.error("Error fetching Discord invite:", error);
         }
     }
 
@@ -477,8 +510,13 @@ document.addEventListener("DOMContentLoaded", async function () {
             await initializeDatabase();
             await fetchStatus();
             checkAuthState();
-            restoreFormData();
             setupFormSubmission();
+            
+            // Fetch Discord invite for the specified container
+            await fetchDiscordInvite("mielamalonu", "rules-container");
+
+            // Start periodic status checking
+            setInterval(fetchStatus, 30000); // Check every 30 seconds
         } catch (error) {
             console.error("Initialization error:", error);
             showErrorMessage("Nepavyko inicijuoti puslapio.");
@@ -487,59 +525,4 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Start initialization
     initializePage();
-
-// Add this function to the existing script, before the final closing });
-
-async function fetchDiscordInvite(inviteCode, containerClass) {
-    try {
-        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
-        const data = await response.json();
-        if (data.guild) {
-            const container = document.querySelector(`.${containerClass}`);
-            if (!container) return console.error("Container not found!");
-            
-            // Remove any existing invite before adding a new one
-            const oldInvite = container.querySelector(".discord-invite");
-            if (oldInvite) oldInvite.remove();
-            
-            // Create the Discord invite HTML structure dynamically
-            const inviteHTML = `
-                <div class="discord-invite">
-                    <div class="invite-banner">
-                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
-                    </div>
-                    <div class="invite-content">
-                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
-                        <div class="server-info">
-                            <h3>${data.guild.name}</h3>
-                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
-                        </div>
-                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
-                    </div>
-                </div>
-            `;
-            container.insertAdjacentHTML("beforeend", inviteHTML);
-        }
-    } catch (error) {
-        console.error("Error fetching Discord invite:", error);
-    }
-}
-
-// Modify the initializePage function to include fetching the Discord invite
-async function initializePage() {
-    try {
-        setupInputProtection();
-        await initializeDatabase();
-        await fetchStatus();
-        checkAuthState();
-        restoreFormData();
-        setupFormSubmission();
-        
-        // Fetch Discord invite for the specified container
-        await fetchDiscordInvite("mielamalonu", "rules-container");
-    } catch (error) {
-        console.error("Initialization error:", error);
-        showErrorMessage("Nepavyko inicijuoti puslapio.");
-    }
-}
 });
