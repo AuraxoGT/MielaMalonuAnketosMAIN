@@ -39,68 +39,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         isButtonLoading: false
     };
 
-    // Prevent default behaviors on input fields
-    function setupInputProtection() {
-        const inputs = elements.form.querySelectorAll('input, textarea');
-        inputs.forEach(input => {
-            // Remove any existing event listeners
-            const oldInput = input.cloneNode(true);
-            input.parentNode.replaceChild(oldInput, input);
-
-            // Add minimal event listener to prevent unwanted submissions
-            oldInput.addEventListener('keydown', function(e) {
-                // Prevent form submission on Enter key
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                }
-            });
-        });
-    }
-
-    // Input Validation
-    function validateForm() {
-        const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
-        for (let fieldId of requiredFields) {
-            const field = document.getElementById(fieldId);
-            if (!field || field.value.trim() === '') {
-                showErrorMessage(`❌ Prašome užpildyti visus laukus!`);
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Restore Form Data from Local Storage
-    function restoreFormData() {
-        const savedFormData = JSON.parse(localStorage.getItem('formData') || '{}');
-        const formFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
-        
-        formFields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field && savedFormData[fieldId]) {
-                field.value = savedFormData[fieldId];
-            }
-        });
-    }
-
-    // Save Form Data to Local Storage
-    function saveFormData() {
-        const formData = {
-            age: document.getElementById('age').value,
-            whyJoin: document.getElementById('whyJoin').value,
-            pl: document.getElementById('pl').value,
-            kl: document.getElementById('kl').value,
-            pc: document.getElementById('pc').value,
-            isp: document.getElementById('isp').value
-        };
-        localStorage.setItem('formData', JSON.stringify(formData));
-    }
-
-    // Clear Saved Form Data
-    function clearSavedFormData() {
-        localStorage.removeItem('formData');
-    }
-
     // Fetch Status 
     async function fetchStatus() {
         try {
@@ -143,6 +81,19 @@ document.addEventListener("DOMContentLoaded", async function () {
             elements.statusDisplay.textContent = "❌ Uždaryta ❌";
             elements.statusDisplay.className = "status-offline";
         }
+    }
+
+    // Input Validation
+    function validateForm() {
+        const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
+        for (let fieldId of requiredFields) {
+            const field = document.getElementById(fieldId);
+            if (!field || field.value.trim() === '') {
+                showErrorMessage(`❌ Prašome užpildyti visus laukus!`);
+                return false;
+            }
+        }
+        return true;
     }
 
     // Fetch Discord User
@@ -210,9 +161,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         state.isSubmitting = true;
 
         try {
-            // Clear saved form data on submission attempt
-            clearSavedFormData();
-
             // Check role requirement
             await checkRoleRequirement();
 
@@ -309,30 +257,14 @@ document.addEventListener("DOMContentLoaded", async function () {
                 accessToken: token
             };
 
-            // Only validate and submit if on the application page
-            if (window.location.pathname.includes('application')) {
-                // Validate form first
-                if (validateForm()) {
-                    // Add loading to button
-                    if (elements.submitButton) {
-                        elements.submitButton.classList.add('button-loading');
-                        state.isButtonLoading = true;
-                    }
-
-                    // Submit application
-                    await submitApplication();
-                }
+            // Try to submit application
+            if (validateForm()) {
+                await submitApplication();
             }
 
         } catch (error) {
             console.error("Authentication or submission error:", error);
             showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
-        } finally {
-            // Remove loading state
-            if (elements.submitButton) {
-                elements.submitButton.classList.remove('button-loading');
-                state.isButtonLoading = false;
-            }
         }
     }
 
@@ -348,15 +280,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Setup form submission event listener
     function setupFormSubmission() {
-        // Remove any existing submit event listeners
-        const oldForm = elements.form.cloneNode(true);
-        elements.form.parentNode.replaceChild(oldForm, elements.form);
-
-        // Add controlled submit event listener
-        oldForm.addEventListener("submit", function(event) {
-            // Absolutely prevent default form submission
+        elements.form.addEventListener("submit", function(event) {
             event.preventDefault();
-            event.stopPropagation();
 
             // Validate form
             if (!validateForm()) return;
@@ -367,15 +292,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                 state.isButtonLoading = true;
             }
 
-            // Save form data
-            saveFormData();
-
             // Start Discord authentication
             handleDiscordAuth();
         });
-
-        // Update form reference
-        elements.form = oldForm;
     }
 
     // Show Success Message
@@ -414,15 +333,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Initialize
     async function initializePage() {
         try {
-            setupInputProtection();
             await fetchStatus();
+            setupFormSubmission();
             
-            // Only handle redirect if on application page
-            if (window.location.pathname.includes('application')) {
-                handleAuthRedirect();
-                restoreFormData();
-                setupFormSubmission();
-            }
+            // Check for authentication redirect
+            handleAuthRedirect();
         } catch (error) {
             console.error("Initialization error:", error);
             showErrorMessage("Nepavyko inicijuoti puslapio.");
