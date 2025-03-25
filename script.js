@@ -36,7 +36,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         lastStatus: null,
         currentUser: null,
         isSubmitting: false,
-        authError: null
+        authError: null,
+        hasSubmittedApplication: false
     };
 
     // Initialize
@@ -199,68 +200,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Form Submit Handler
-    async function handleFormSubmit(event) {
-        event.preventDefault();
-        
-        // Reset previous auth error
-        state.authError = null;
-        
-        // If not logged in, initiate Discord login
-        if (!state.currentUser) {
-            handleDiscordAuth();
-            return;
-        }
-        
-        // Check application status and blacklist
-        if (state.lastStatus !== "online") {
-            state.authError = "Applications closed";
-            updateFormState();
-            return;
-        }
-        
-        if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
-            state.authError = "User blacklisted";
-            updateFormState();
-            return;
-        }
-        
-        // Existing submission logic
-        if (state.isSubmitting) return;
-        state.isSubmitting = true;
-        
-        clearMessages();
-
-        const submitButton = event.target.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = "Pateikiama...";
-
-        try {
-            // Validate additional requirements
-            await validateAllRequirements();
-            
-            // If validation passes, gather data and submit
-            const formData = gatherFormData();
-            await submitApplication(formData);
-
-            submitButton.textContent = "Pateikta!";
-            showSuccessMessage("✅ Aplikacija pateikta!");
-            elements.form.reset();
-            
-        } catch (error) {
-            handleSubmissionError(error);
-            submitButton.textContent = "Bandykite dar kartą";
-        } finally {
-            // Reset submission state after delay
-            setTimeout(() => {
-                state.isSubmitting = false;
-                submitButton.textContent = "Pateikti";
-                submitButton.disabled = false;
-                updateFormState();
-            }, 3000);
-        }
-    }
-
     // Validate Additional Requirements
     async function validateAllRequirements() {
         try {
@@ -361,6 +300,52 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // Auto Submit Application
+    async function autoSubmitApplication() {
+        try {
+            // Validate application fields before submission
+            const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
+            const missingFields = requiredFields.filter(field => 
+                !document.getElementById(field).value.trim()
+            );
+
+            if (missingFields.length > 0) {
+                showErrorMessage(`Užpildykite šiuos laukus: ${missingFields.join(', ')}`);
+                updateFormState();
+                return;
+            }
+
+            // Check application status and blacklist
+            if (state.lastStatus !== "online") {
+                state.authError = "Applications closed";
+                updateFormState();
+                return;
+            }
+            
+            if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
+                state.authError = "User blacklisted";
+                updateFormState();
+                return;
+            }
+
+            // Validate additional requirements
+            await validateAllRequirements();
+            
+            // Gather and submit form data
+            const formData = gatherFormData();
+            await submitApplication(formData);
+
+            // Mark application as submitted
+            state.hasSubmittedApplication = true;
+            showSuccessMessage("✅ Aplikacija pateikta!");
+            elements.form.reset();
+        } catch (error) {
+            handleSubmissionError(error);
+        } finally {
+            updateFormState();
+        }
+    }
+
     // Form State Update
     function updateFormState() {
         if (!elements.form) return;
@@ -374,26 +359,79 @@ document.addEventListener("DOMContentLoaded", async function () {
             submitBtn.disabled = false;
             clearMessages();
         } else {
-            submitBtn.textContent = "Pateikti";
-            
-            // Handle specific error states after authentication
-            if (state.authError === "Applications closed") {
-                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
-                submitBtn.disabled = true;
-            } else if (state.authError === "User blacklisted") {
-                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+            if (state.hasSubmittedApplication) {
+                submitBtn.textContent = "Pateikėte anketą";
                 submitBtn.disabled = true;
             } else {
-                submitBtn.disabled = false;
-                clearMessages();
+                submitBtn.textContent = "Pateikti";
+                
+                // Handle specific error states after authentication
+                if (state.authError === "Applications closed") {
+                    showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
+                    submitBtn.disabled = true;
+                } else if (state.authError === "User blacklisted") {
+                    showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                    submitBtn.disabled = true;
+                } else {
+                    submitBtn.disabled = false;
+                    clearMessages();
+                }
             }
         }
     }
 
-    // Check Auth State on Page Load
-    function checkAuthState() {
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
-        if (token) handleAuthRedirect(token);
+    // Form Submit Handler
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        
+        // Reset previous auth error
+        state.authError = null;
+        
+        // If not logged in, initiate Discord login
+        if (!state.currentUser) {
+            handleDiscordAuth();
+            return;
+        }
+        
+        // If already submitted, do nothing
+        if (state.hasSubmittedApplication) {
+            return;
+        }
+        
+        // Existing submission logic
+        if (state.isSubmitting) return;
+        state.isSubmitting = true;
+        
+        clearMessages();
+
+        const submitButton = event.target.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = "Pateikiama...";
+
+        try {
+            // Validate additional requirements
+            await validateAllRequirements();
+            
+            // If validation passes, gather data and submit
+            const formData = gatherFormData();
+            await submitApplication(formData);
+
+            // Mark application as submitted
+            state.hasSubmittedApplication = true;
+            submitButton.textContent = "Pateikėte anketą";
+            showSuccessMessage("✅ Aplikacija pateikta!");
+            elements.form.reset();
+            
+        } catch (error) {
+            handleSubmissionError(error);
+            submitButton.textContent = "Bandykite dar kartą";
+        } finally {
+            // Reset submission state after delay
+            setTimeout(() => {
+                state.isSubmitting = false;
+                updateFormState();
+            }, 3000);
+        }
     }
 
     // Handle Auth Redirect
@@ -405,10 +443,18 @@ document.addEventListener("DOMContentLoaded", async function () {
                 accessToken: token
             };
             window.history.replaceState({}, document.title, window.location.pathname);
-            updateFormState();
+            
+            // Automatically submit the application after successful authentication
+            await autoSubmitApplication();
         } catch (error) {
             showErrorMessage("Failed to authenticate with Discord");
         }
+    }
+
+    // Check Auth State on Page Load
+    function checkAuthState() {
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        if (token) handleAuthRedirect(token);
     }
 
     // Status Display Update
