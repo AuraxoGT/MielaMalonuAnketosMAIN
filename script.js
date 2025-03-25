@@ -39,6 +39,24 @@ document.addEventListener("DOMContentLoaded", async function () {
         isButtonLoading: false
     };
 
+    // Prevent default behaviors on input fields
+    function setupInputProtection() {
+        const inputs = elements.form.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            // Remove any existing event listeners
+            const oldInput = input.cloneNode(true);
+            input.parentNode.replaceChild(oldInput, input);
+
+            // Add minimal event listener to prevent unwanted submissions
+            oldInput.addEventListener('keydown', function(e) {
+                // Prevent form submission on Enter key
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                }
+            });
+        });
+    }
+
     // Input Validation
     function validateForm() {
         const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
@@ -352,40 +370,60 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Initialize Event Listeners
-    function initializeEventListeners() {
-        // Proper form submission
-        elements.form.addEventListener("submit", async (event) => {
+    // Setup form submission event listener
+    function setupFormSubmission() {
+        // Remove any existing submit event listeners
+        const oldForm = elements.form.cloneNode(true);
+        elements.form.parentNode.replaceChild(oldForm, elements.form);
+
+        // Add controlled submit event listener
+        oldForm.addEventListener("submit", function(event) {
+            // Absolutely prevent default form submission
             event.preventDefault();
-            
-            // Validate form before proceeding
+            event.stopPropagation();
+
+            // Validate form
             if (!validateForm()) return;
 
-            // Prevent multiple submissions
-            if (state.isSubmitting) return;
-
             // Add loading state to button
-            if (!state.isButtonLoading && elements.submitButton) {
+            if (elements.submitButton) {
                 elements.submitButton.classList.add('button-loading');
                 state.isButtonLoading = true;
             }
-            
-            // Save form data and start Discord auth
+
+            // Save form data
             saveFormData();
+
+            // Start Discord authentication
             handleDiscordAuth();
         });
+
+        // Update form reference
+        elements.form = oldForm;
+    }
+
+    // Initiate Discord Authentication
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
     }
 
     // Show Success Message
     function showSuccessMessage(message) {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "success-message";
+        elements.form.appendChild(elements.responseMessage);
     }
 
     // Show Error Message
     function showErrorMessage(message) {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "error-message";
+        elements.form.appendChild(elements.responseMessage);
     }
 
     // Handle Submission Error
@@ -407,25 +445,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Initiate Discord Authentication
-    function handleDiscordAuth() {
-        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
-        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
-        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
-        authUrl.searchParams.append("response_type", "token");
-        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
-        window.location.href = authUrl.toString();
-    }
-
     // Initialize
     async function initializePage() {
         try {
-            elements.form.appendChild(elements.responseMessage);
+            setupInputProtection();
             await initializeDatabase();
             await fetchStatus();
             checkAuthState();
             restoreFormData();
-            initializeEventListeners();
+            setupFormSubmission();
         } catch (error) {
             console.error("Initialization error:", error);
             showErrorMessage("Nepavyko inicijuoti puslapio.");
