@@ -277,7 +277,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         // Check user role
         try {
-            const response = await fetch("https://mmapi-1.onrender.com/api/check-role", {
+            const response = await fetch("mmapi-production.up.railway.app/api/check-role", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
