@@ -184,6 +184,16 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // Check if user is blacklisted
+    function isUserBlacklisted(userId) {
+        if (!state.blacklist) return false;
+        
+        const userIdStr = String(userId).trim();
+        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
+        
+        return blacklistedIds.includes(userIdStr);
+    }
+
     // Fetch Discord User
     async function fetchDiscordUser(token) {
         try {
@@ -210,16 +220,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.error("Discord API error:", error);
             throw error;
         }
-    }
-
-    // Check if user is blacklisted
-    function isUserBlacklisted(userId) {
-        if (!state.blacklist) return false;
-        
-        const userIdStr = String(userId).trim();
-        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
-        
-        return blacklistedIds.includes(userIdStr);
     }
 
     // Check Role Requirement
@@ -249,13 +249,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         state.isSubmitting = true;
 
         try {
-            // Check if user is blacklisted at submission
-            if (isUserBlacklisted(state.currentUser.id)) {
-                throw new Error("BL");
-            }
-
             // Clear saved form data on submission attempt
             clearSavedFormData();
+
+            // Check if user is blacklisted
+            if (isUserBlacklisted(state.currentUser.id)) {
+                throw new Error("BLACKLISTED");
+            }
 
             // Check role requirement
             await checkRoleRequirement();
@@ -307,7 +307,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             // Reset form
             elements.form.reset();
-            
+
+            // Redirect after 5 seconds
             setTimeout(() => {
                 window.location.href = "https://anketa.mielamalonu.com";
             }, 5000);
@@ -325,6 +326,134 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // Handle Authentication Redirect
+    async function handleAuthRedirect(token) {
+        try {
+            // Store token in local storage for potential reuse
+            localStorage.setItem('discordToken', token);
+
+            // Fetch user data
+            const userData = await fetchDiscordUser(token);
+            
+            // Check application status
+            if (state.lastStatus !== "online") {
+                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
+                return;
+            }
+
+            // Prevent rapid submissions
+            const currentTime = Date.now();
+            if (currentTime - state.lastSubmissionTime < 30000) { // 30 seconds cooldown
+                showErrorMessage("❌ Palaukite prieš teikdami dar vieną anketą!");
+                return;
+            }
+            state.lastSubmissionTime = currentTime;
+
+            // Check if user is blacklisted
+            if (isUserBlacklisted(userData.id)) {
+                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                // Redirect to main page after 5 seconds
+                setTimeout(() => {
+                    window.location.href = "https://anketa.mielamalonu.com";
+                }, 5000);
+                return;
+            }
+
+            // Set current user
+            state.currentUser = {
+                ...userData,
+                accessToken: token
+            };
+
+            // Submit application
+            await submitApplication();
+
+        } catch (error) {
+            console.error("Authentication or submission error:", error);
+            showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
+            
+            // Redirect to main page on error
+            window.location.href = "https://anketa.mielamalonu.com";
+        } finally {
+            // Remove loading state
+            if (elements.submitButton) {
+                elements.submitButton.classList.remove('button-loading');
+                state.isButtonLoading = false;
+            }
+        }
+    }
+
+    // Check Authentication State
+    function checkAuthState() {
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token") || 
+                      localStorage.getItem('discordToken');
+        
+        if (token) {
+            // Add loading to button on redirect
+            if (elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+            handleAuthRedirect(token);
+        }
+    }
+
+    // Setup form submission event listener
+    function setupFormSubmission() {
+        // Remove any existing submit event listeners
+        const oldForm = elements.form.cloneNode(true);
+        elements.form.parentNode.replaceChild(oldForm, elements.form);
+
+        // Add controlled submit event listener
+        oldForm.addEventListener("submit", function(event) {
+            // Absolutely prevent default form submission
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Validate form
+            if (!validateForm()) return;
+
+            // Add loading state to button
+            if (elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+
+            // Save form data
+            saveFormData();
+
+            // Start Discord authentication
+            handleDiscordAuth();
+        });
+
+        // Update form reference
+        elements.form = oldForm;
+    }
+
+    // Initiate Discord Authentication
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
+    }
+
+    // Show Success Message
+    function showSuccessMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.className = "success-message";
+        elements.form.appendChild(elements.responseMessage);
+    }
+
+    // Show Error Message
+    function showErrorMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.className = "error-message";
+        elements.form.appendChild(elements.responseMessage);
+    }
+
     // Handle Submission Error
     function handleSubmissionError(error) {
         console.error("Submission error:", error);
@@ -336,15 +465,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
 
         switch(error.message) {
-            case "LA":
-                showErrorMessage("❌ Jūs jau esate užpildęs anketą!");
-                // Redirect to main page
+            case "BLACKLISTED":
+                showErrorMessage("❌ Esate užblokuotas!");
+                // Redirect to main page after 5 seconds
                 setTimeout(() => {
                     window.location.href = "https://anketa.mielamalonu.com";
                 }, 5000);
                 break;
-            case "BL":
-                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+            case "LA":
+                showErrorMessage("❌ Jūs jau esate užpildęs anketą!");
                 // Redirect to main page
                 setTimeout(() => {
                     window.location.href = "https://anketa.mielamalonu.com";
@@ -359,10 +488,43 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Rest of the code remains the same...
-    // (other functions like handleAuthRedirect, checkAuthState, etc.)
+    // Fetch Discord Invite
+    async function fetchDiscordInvite(inviteCode, containerClass) {
+        try {
+            const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+            const data = await response.json();
+            if (data.guild) {
+                const container = document.querySelector(`.${containerClass}`);
+                if (!container) return console.error("Container not found!");
+                
+                // Remove any existing invite before adding a new one
+                const oldInvite = container.querySelector(".discord-invite");
+                if (oldInvite) oldInvite.remove();
+                
+                // Create the Discord invite HTML structure dynamically
+                const inviteHTML = `
+                    <div class="discord-invite">
+                        <div class="invite-banner">
+                            ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
+                        </div>
+                        <div class="invite-content">
+                            <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                            <div class="server-info">
+                                <h3>${data.guild.name}</h3>
+                                <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                            </div>
+                            <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML("beforeend", inviteHTML);
+            }
+        } catch (error) {
+            console.error("Error fetching Discord invite:", error);
+        }
+    }
 
-    // Initialize
+    // Initialize Page
     async function initializePage() {
         try {
             setupInputProtection();
@@ -371,6 +533,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             checkAuthState();
             restoreFormData();
             setupFormSubmission();
+            
+            // Fetch Discord invite for the specified container
+            await fetchDiscordInvite("mielamalonu", "rules-container");
         } catch (error) {
             console.error("Initialization error:", error);
             showErrorMessage("Nepavyko inicijuoti puslapio.");
@@ -380,3 +545,39 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Start initialization
     initializePage();
 });
+
+// Fetch Discord Invite function added outside the main event listener
+async function fetchDiscordInvite(inviteCode, containerClass) {
+    try {
+        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+        const data = await response.json();
+        if (data.guild) {
+            const container = document.querySelector(`.${containerClass}`);
+            if (!container) return console.error("Container not found!");
+            
+            // Remove any existing invite before adding a new one
+            const oldInvite = container.querySelector(".discord-invite");
+            if (oldInvite) oldInvite.remove();
+            
+            // Create the Discord invite HTML structure dynamically
+            const inviteHTML = `
+                <div class="discord-invite">
+                    <div class="invite-banner">
+                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
+                    </div>
+                    <div class="invite-content">
+                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                        <div class="server-info">
+                            <h3>${data.guild.name}</h3>
+                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                        </div>
+                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML("beforeend", inviteHTML);
+        }
+    } catch (error) {
+        console.error("Error fetching Discord invite:", error);
+    }
+}
