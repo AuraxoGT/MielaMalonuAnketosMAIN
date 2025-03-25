@@ -39,6 +39,19 @@ document.addEventListener("DOMContentLoaded", async function () {
         isButtonLoading: false
     };
 
+    // Input Validation
+    function validateForm() {
+        const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
+        for (let fieldId of requiredFields) {
+            const field = document.getElementById(fieldId);
+            if (!field || field.value.trim() === '') {
+                showErrorMessage(`❌ Prašome užpildyti visus laukus!`);
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Restore Form Data from Local Storage
     function restoreFormData() {
         const savedFormData = JSON.parse(localStorage.getItem('formData') || '{}');
@@ -69,14 +82,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     function clearSavedFormData() {
         localStorage.removeItem('formData');
     }
-
-    // Initialize
-    elements.form.appendChild(elements.responseMessage);
-    initializeEventListeners();
-    await initializeDatabase();
-    await fetchStatus();
-    checkAuthState();
-    restoreFormData();
 
     // Database Initialization
     async function initializeDatabase() {
@@ -112,6 +117,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         } catch (error) {
             console.error("Database initialization error:", error);
+            throw error;
         }
     }
 
@@ -148,99 +154,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Initialize Event Listeners
-    function initializeEventListeners() {
-        // Prevent form submission on input field focus
-        const inputFields = elements.form.querySelectorAll('input, textarea');
-        inputFields.forEach(field => {
-            field.addEventListener('focus', (e) => {
-                e.preventDefault();
-            });
-        });
-
-        // Proper form submission
-        elements.form.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            
-            // Only add loading if not already loading
-            if (!state.isButtonLoading && elements.submitButton) {
-                elements.submitButton.classList.add('button-loading');
-                state.isButtonLoading = true;
-            }
-            
-            saveFormData();
-            handleDiscordAuth();
-        });
-    }
-
-    // Check Authentication State
-    function checkAuthState() {
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
-        if (token) {
-            // Add loading to button on redirect
-            if (elements.submitButton) {
-                elements.submitButton.classList.add('button-loading');
-                state.isButtonLoading = true;
-            }
-            handleAuthRedirect(token);
+    // Update Status Display
+    function updateStatusDisplay() {
+        if (state.lastStatus === "online") {
+            elements.statusDisplay.textContent = "✅ Atidaryta ✅";
+            elements.statusDisplay.className = "status-online";
+        } else {
+            elements.statusDisplay.textContent = "❌ Uždaryta ❌";
+            elements.statusDisplay.className = "status-offline";
         }
-    }
-
-    // Handle Authentication Redirect
-    async function handleAuthRedirect(token) {
-        try {
-            // Fetch user data
-            const userData = await fetchDiscordUser(token);
-            
-            // Check application status
-            if (state.lastStatus !== "online") {
-                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
-                return;
-            }
-
-            // Prevent rapid submissions
-            const currentTime = Date.now();
-            if (currentTime - state.lastSubmissionTime < 30000) { // 30 seconds cooldown
-                showErrorMessage("❌ Palaukite prieš teikdami dar vieną anketą!");
-                return;
-            }
-            state.lastSubmissionTime = currentTime;
-
-            // Check if user is blacklisted
-            if (isUserBlacklisted(userData.id)) {
-                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
-                return;
-            }
-
-            // Set current user
-            state.currentUser = {
-                ...userData,
-                accessToken: token
-            };
-
-            // Submit application
-            await submitApplication();
-
-        } catch (error) {
-            console.error("Authentication or submission error:", error);
-            showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
-        } finally {
-            // Remove loading state
-            if (elements.submitButton) {
-                elements.submitButton.classList.remove('button-loading');
-                state.isButtonLoading = false;
-            }
-        }
-    }
-
-    // Check if user is blacklisted
-    function isUserBlacklisted(userId) {
-        if (!state.blacklist) return false;
-        
-        const userIdStr = String(userId).trim();
-        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
-        
-        return blacklistedIds.includes(userIdStr);
     }
 
     // Fetch Discord User
@@ -267,6 +189,37 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         } catch (error) {
             console.error("Discord API error:", error);
+            throw error;
+        }
+    }
+
+    // Check if user is blacklisted
+    function isUserBlacklisted(userId) {
+        if (!state.blacklist) return false;
+        
+        const userIdStr = String(userId).trim();
+        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
+        
+        return blacklistedIds.includes(userIdStr);
+    }
+
+    // Check Role Requirement
+    async function checkRoleRequirement() {
+        try {
+            const response = await fetch("https://mmapi-production.up.railway.app/api/check-role", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ userId: state.currentUser.id })
+            });
+
+            if (!response.ok) throw new Error("Server error while checking role");
+            
+            const data = await response.json();
+
+            if (data.hasRole) throw new Error("LA");
+        } catch (error) {
             throw error;
         }
     }
@@ -339,36 +292,100 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Check Role Requirement
-    async function checkRoleRequirement() {
+    // Handle Authentication Redirect
+    async function handleAuthRedirect(token) {
         try {
-            const response = await fetch("https://mmapi-production.up.railway.app/api/check-role", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ userId: state.currentUser.id })
-            });
-
-            if (!response.ok) throw new Error("Server error while checking role");
+            // Fetch user data
+            const userData = await fetchDiscordUser(token);
             
-            const data = await response.json();
+            // Check application status
+            if (state.lastStatus !== "online") {
+                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
+                return;
+            }
 
-            if (data.hasRole) throw new Error("LA");
+            // Prevent rapid submissions
+            const currentTime = Date.now();
+            if (currentTime - state.lastSubmissionTime < 30000) { // 30 seconds cooldown
+                showErrorMessage("❌ Palaukite prieš teikdami dar vieną anketą!");
+                return;
+            }
+            state.lastSubmissionTime = currentTime;
+
+            // Check if user is blacklisted
+            if (isUserBlacklisted(userData.id)) {
+                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                return;
+            }
+
+            // Set current user
+            state.currentUser = {
+                ...userData,
+                accessToken: token
+            };
+
+            // Submit application
+            await submitApplication();
+
         } catch (error) {
-            throw error;
+            console.error("Authentication or submission error:", error);
+            showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
+        } finally {
+            // Remove loading state
+            if (elements.submitButton) {
+                elements.submitButton.classList.remove('button-loading');
+                state.isButtonLoading = false;
+            }
         }
     }
 
-    // Update Status Display
-    function updateStatusDisplay() {
-        if (state.lastStatus === "online") {
-            elements.statusDisplay.textContent = "✅ Atidaryta ✅";
-            elements.statusDisplay.className = "status-online";
-        } else {
-            elements.statusDisplay.textContent = "❌ Uždaryta ❌";
-            elements.statusDisplay.className = "status-offline";
+    // Check Authentication State
+    function checkAuthState() {
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        if (token) {
+            // Add loading to button on redirect
+            if (elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+            handleAuthRedirect(token);
         }
+    }
+
+    // Initialize Event Listeners
+    function initializeEventListeners() {
+        // Proper form submission
+        elements.form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            
+            // Validate form before proceeding
+            if (!validateForm()) return;
+
+            // Prevent multiple submissions
+            if (state.isSubmitting) return;
+
+            // Add loading state to button
+            if (!state.isButtonLoading && elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+            
+            // Save form data and start Discord auth
+            saveFormData();
+            handleDiscordAuth();
+        });
+    }
+
+    // Show Success Message
+    function showSuccessMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.className = "success-message";
+    }
+
+    // Show Error Message
+    function showErrorMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.className = "error-message";
     }
 
     // Handle Submission Error
@@ -390,18 +407,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Show Success Message
-    function showSuccessMessage(message) {
-        elements.responseMessage.textContent = message;
-        elements.responseMessage.className = "success-message";
-    }
-
-    // Show Error Message
-    function showErrorMessage(message) {
-        elements.responseMessage.textContent = message;
-        elements.responseMessage.className = "error-message";
-    }
-
     // Initiate Discord Authentication
     function handleDiscordAuth() {
         const authUrl = new URL("https://discord.com/api/oauth2/authorize");
@@ -411,4 +416,22 @@ document.addEventListener("DOMContentLoaded", async function () {
         authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
         window.location.href = authUrl.toString();
     }
+
+    // Initialize
+    async function initializePage() {
+        try {
+            elements.form.appendChild(elements.responseMessage);
+            await initializeDatabase();
+            await fetchStatus();
+            checkAuthState();
+            restoreFormData();
+            initializeEventListeners();
+        } catch (error) {
+            console.error("Initialization error:", error);
+            showErrorMessage("Nepavyko inicijuoti puslapio.");
+        }
+    }
+
+    // Start initialization
+    initializePage();
 });
