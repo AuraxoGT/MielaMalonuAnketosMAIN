@@ -40,13 +40,50 @@ document.addEventListener("DOMContentLoaded", async function () {
         hasSubmittedApplication: false
     };
 
-    // Initialize
-    elements.form.appendChild(elements.responseMessage);
-    initializeEventListeners();
-    setInterval(fetchStatus, 5000);
-    await initializeDatabase();
-    fetchStatus();
-    checkAuthState();
+    // Initialize Event Listeners
+    function initializeEventListeners() {
+        if (elements.form) {
+            elements.form.addEventListener("submit", handleFormSubmit);
+        }
+
+        if (elements.discordButton) {
+            elements.discordButton.addEventListener("click", handleDiscordAuth);
+        }
+    }
+
+    // Initialize Database
+    async function initializeDatabase() {
+        try {
+            // Ensure Status table exists and has a default record
+            const { data: statusData, error: statusError } = await supabaseClient
+                .from(CONFIG.SUPABASE.STATUS_TABLE)
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (statusError || !statusData) {
+                await supabaseClient
+                    .from(CONFIG.SUPABASE.STATUS_TABLE)
+                    .insert({ id: 1, status: 'online' });
+            }
+
+            // Ensure Blacklist table exists and has a default record
+            const { data: blacklistData, error: blacklistError } = await supabaseClient
+                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (blacklistError || !blacklistData) {
+                await supabaseClient
+                    .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                    .insert({ id: 1, blacklisted_ids: '' });
+            }
+        } catch (error) {
+            console.error("❌ Database initialization error:", error);
+            showErrorMessage("Failed to initialize database");
+        }
+    }
 
     // Fetch Status and Blacklist
     async function fetchStatus() {
@@ -103,6 +140,46 @@ document.addEventListener("DOMContentLoaded", async function () {
         } catch (error) {
             console.error("❌ Status fetch error:", error);
             showErrorMessage("Failed to load application status. Check console for details.");
+        }
+    }
+
+    // Update Status Display
+    function updateStatusDisplay() {
+        if (!elements.statusDisplay) return;
+
+        if (state.lastStatus === "online") {
+            elements.statusDisplay.textContent = "Aplikacijos atidaros";
+            elements.statusDisplay.style.color = "green";
+        } else {
+            elements.statusDisplay.textContent = "Aplikacijos uždarytos";
+            elements.statusDisplay.style.color = "red";
+        }
+    }
+
+    // Update Form State
+    function updateFormState() {
+        if (!elements.form) return;
+
+        const submitButton = elements.form.querySelector('button[type="submit"]');
+        
+        // Disable form if:
+        // 1. Applications are closed
+        // 2. User is not authenticated
+        // 3. User is blacklisted
+        // 4. User has already submitted an application
+        const isDisabled = 
+            state.lastStatus !== "online" || 
+            !state.currentUser || 
+            isUserBlacklisted(state.currentUser?.id, state.blacklist) ||
+            state.hasSubmittedApplication;
+
+        if (submitButton) {
+            submitButton.disabled = isDisabled;
+        }
+
+        // Show error messages if applicable
+        if (state.authError) {
+            showErrorMessage(getErrorMessage(state.authError));
         }
     }
 
@@ -240,6 +317,112 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (!response.ok) throw new Error("BotGhost API error");
     }
 
+    // Handle Form Submit
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        
+        // Reset previous auth error
+        state.authError = null;
+        
+        // If not logged in, initiate Discord login
+        if (!state.currentUser) {
+            handleDiscordAuth();
+            return;
+        }
+        
+        // If already submitted, do nothing
+        if (state.hasSubmittedApplication) {
+            return;
+        }
+        
+        // Existing submission logic
+        if (state.isSubmitting) return;
+        state.isSubmitting = true;
+        
+        clearMessages();
+
+        const submitButton = event.target.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = "Pateikiama...";
+
+        try {
+            // Validate additional requirements
+            await validateAllRequirements();
+            
+            // If validation passes, gather data and submit
+            const formData = gatherFormData();
+            await submitApplication(formData);
+
+            // Mark application as submitted
+            state.hasSubmittedApplication = true;
+            submitButton.textContent = "Pateikėte anketą";
+            showSuccessMessage("✅ Aplikacija pateikta!");
+            elements.form.reset();
+            
+        } catch (error) {
+            handleSubmissionError(error);
+            submitButton.textContent = "Bandykite dar kartą";
+        } finally {
+            // Reset submission state after delay
+            setTimeout(() => {
+                state.isSubmitting = false;
+                updateFormState();
+            }, 3000);
+        }
+    }
+
+    // Helper Functions
+    function isUserBlacklisted(userId, blacklist) {
+        if (!userId || !blacklist) return false;
+        const blacklistedIds = blacklist.split(',').map(id => id.trim());
+        return blacklistedIds.includes(userId);
+    }
+
+    function getErrorMessage(errorType) {
+        const errorMessages = {
+            "LA": "Jūs jau turite rolę",
+            "User blacklisted": "Jūs esate užblokuotas",
+            "Applications closed": "Aplikacijos šiuo metu uždarytos"
+        };
+        return errorMessages[errorType] || "Klaida pateikiant anketą";
+    }
+
+    function showSuccessMessage(message) {
+        clearMessages();
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.style.color = "green";
+        elements.form.appendChild(elements.responseMessage);
+    }
+
+    function showErrorMessage(message) {
+        clearMessages();
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.style.color = "red";
+        elements.form.appendChild(elements.responseMessage);
+    }
+
+    function clearMessages() {
+        if (elements.responseMessage) {
+            elements.responseMessage.textContent = "";
+            elements.responseMessage.style.color = "";
+        }
+    }
+
+    function handleSubmissionError(error) {
+        console.error("Submission error:", error);
+        
+        let errorMessage = "Klaida pateikiant anketą";
+        
+        if (error.message === "LA") {
+            errorMessage = "Jūs jau turite rolę";
+        } else if (error.message === "Server error while checking role") {
+            errorMessage = "Serverio klaida tikrinant rolę";
+        }
+
+        showErrorMessage(errorMessage);
+        state.hasSubmittedApplication = false;
+    }
+
     // Handle Auth Redirect
     async function handleAuthRedirect(token) {
         try {
@@ -294,63 +477,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (token) handleAuthRedirect(token);
     }
 
-    // Form Submit Handler
-    async function handleFormSubmit(event) {
-        event.preventDefault();
-        
-        // Reset previous auth error
-        state.authError = null;
-        
-        // If not logged in, initiate Discord login
-        if (!state.currentUser) {
-            handleDiscordAuth();
-            return;
-        }
-        
-        // If already submitted, do nothing
-        if (state.hasSubmittedApplication) {
-            return;
-        }
-        
-        // Existing submission logic
-        if (state.isSubmitting) return;
-        state.isSubmitting = true;
-        
-        clearMessages();
-
-        const submitButton = event.target.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = "Pateikiama...";
-
-        try {
-            // Validate additional requirements
-            await validateAllRequirements();
-            
-            // If validation passes, gather data and submit
-            const formData = gatherFormData();
-            await submitApplication(formData);
-
-            // Mark application as submitted
-            state.hasSubmittedApplication = true;
-            submitButton.textContent = "Pateikėte anketą";
-            showSuccessMessage("✅ Aplikacija pateikta!");
-            elements.form.reset();
-            
-        } catch (error) {
-            handleSubmissionError(error);
-            submitButton.textContent = "Bandykite dar kartą";
-        } finally {
-            // Reset submission state after delay
-            setTimeout(() => {
-                state.isSubmitting = false;
-                updateFormState();
-            }, 3000);
-        }
-    }
-
-    // Remaining helper functions (error handling, event listeners, etc.) 
-    // would be the same as in previous implementations
-
     // Discord Authentication
     function handleDiscordAuth() {
         const authUrl = new URL("https://discord.com/api/oauth2/authorize");
@@ -361,5 +487,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         window.location.href = authUrl.toString();
     }
 
-    // ... (other helper functions like updateFormState, showErrorMessage, etc.)
+    // Initialize
+    elements.form.appendChild(elements.responseMessage);
+    initializeEventListeners();
+    setInterval(fetchStatus, 5000);
+    await initializeDatabase();
+    fetchStatus();
+    checkAuthState();
 });
