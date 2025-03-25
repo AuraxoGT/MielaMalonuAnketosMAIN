@@ -35,7 +35,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         lastStatus: null,
         currentUser: null,
         isSubmitting: false,
-        lastSubmissionTime: 0
+        lastSubmissionTime: 0,
+        isButtonLoading: false
     };
 
     // Restore Form Data from Local Storage
@@ -147,10 +148,42 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // Initialize Event Listeners
+    function initializeEventListeners() {
+        // Prevent form submission on input field focus
+        const inputFields = elements.form.querySelectorAll('input, textarea');
+        inputFields.forEach(field => {
+            field.addEventListener('focus', (e) => {
+                e.preventDefault();
+            });
+        });
+
+        // Proper form submission
+        elements.form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            
+            // Only add loading if not already loading
+            if (!state.isButtonLoading && elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+            
+            saveFormData();
+            handleDiscordAuth();
+        });
+    }
+
     // Check Authentication State
     function checkAuthState() {
         const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
-        if (token) handleAuthRedirect(token);
+        if (token) {
+            // Add loading to button on redirect
+            if (elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+            handleAuthRedirect(token);
+        }
     }
 
     // Handle Authentication Redirect
@@ -191,10 +224,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         } catch (error) {
             console.error("Authentication or submission error:", error);
             showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
-            
-            // Remove loading animation if there's an error
+        } finally {
+            // Remove loading state
             if (elements.submitButton) {
                 elements.submitButton.classList.remove('button-loading');
+                state.isButtonLoading = false;
             }
         }
     }
@@ -300,6 +334,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Remove loading animation
             if (elements.submitButton) {
                 elements.submitButton.classList.remove('button-loading');
+                state.isButtonLoading = false;
             }
         }
     }
@@ -339,6 +374,13 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Handle Submission Error
     function handleSubmissionError(error) {
         console.error("Submission error:", error);
+        
+        // Reset button loading state
+        if (elements.submitButton) {
+            elements.submitButton.classList.remove('button-loading');
+            state.isButtonLoading = false;
+        }
+
         switch(error.message) {
             case "LA":
                 showErrorMessage("❌ Jūs jau esate užpildęs anketą!");
@@ -358,31 +400,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     function showErrorMessage(message) {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "error-message";
-    }
-
-    // Initialize Event Listeners
-    function initializeEventListeners() {
-        elements.form.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            
-            // Add loading animation to submit button
-            if (elements.submitButton) {
-                elements.submitButton.classList.add('button-loading');
-            }
-            
-            saveFormData();
-            
-            try {
-                handleDiscordAuth();
-            } catch (error) {
-                console.error("Submission error:", error);
-                
-                // Remove loading animation if there's an error
-                if (elements.submitButton) {
-                    elements.submitButton.classList.remove('button-loading');
-                }
-            }
-        });
     }
 
     // Initiate Discord Authentication
