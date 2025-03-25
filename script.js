@@ -36,12 +36,44 @@ document.addEventListener("DOMContentLoaded", async function () {
         isSubmitting: false
     };
 
+    // Restore Form Data from Local Storage
+    function restoreFormData() {
+        const savedFormData = JSON.parse(localStorage.getItem('formData') || '{}');
+        const formFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
+        
+        formFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field && savedFormData[fieldId]) {
+                field.value = savedFormData[fieldId];
+            }
+        });
+    }
+
+    // Save Form Data to Local Storage
+    function saveFormData() {
+        const formData = {
+            age: document.getElementById('age').value,
+            whyJoin: document.getElementById('whyJoin').value,
+            pl: document.getElementById('pl').value,
+            kl: document.getElementById('kl').value,
+            pc: document.getElementById('pc').value,
+            isp: document.getElementById('isp').value
+        };
+        localStorage.setItem('formData', JSON.stringify(formData));
+    }
+
+    // Clear Saved Form Data
+    function clearSavedFormData() {
+        localStorage.removeItem('formData');
+    }
+
     // Initialize
     elements.form.appendChild(elements.responseMessage);
     initializeEventListeners();
     await initializeDatabase();
     await fetchStatus();
     checkAuthState();
+    restoreFormData();
 
     // Database Initialization
     async function initializeDatabase() {
@@ -211,6 +243,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         state.isSubmitting = true;
 
         try {
+            // Clear saved form data on submission attempt
+            clearSavedFormData();
+
             // Check role requirement
             await checkRoleRequirement();
 
@@ -324,6 +359,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     function initializeEventListeners() {
         elements.form.addEventListener("submit", async (event) => {
             event.preventDefault();
+            saveFormData();
             handleDiscordAuth();
         });
     }
