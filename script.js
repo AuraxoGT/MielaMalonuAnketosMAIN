@@ -484,4 +484,59 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Start initialization
     initializePage();
+
+// Add this function to the existing script, before the final closing });
+
+async function fetchDiscordInvite(inviteCode, containerClass) {
+    try {
+        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+        const data = await response.json();
+        if (data.guild) {
+            const container = document.querySelector(`.${containerClass}`);
+            if (!container) return console.error("Container not found!");
+            
+            // Remove any existing invite before adding a new one
+            const oldInvite = container.querySelector(".discord-invite");
+            if (oldInvite) oldInvite.remove();
+            
+            // Create the Discord invite HTML structure dynamically
+            const inviteHTML = `
+                <div class="discord-invite">
+                    <div class="invite-banner">
+                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
+                    </div>
+                    <div class="invite-content">
+                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                        <div class="server-info">
+                            <h3>${data.guild.name}</h3>
+                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                        </div>
+                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML("beforeend", inviteHTML);
+        }
+    } catch (error) {
+        console.error("Error fetching Discord invite:", error);
+    }
+}
+
+// Modify the initializePage function to include fetching the Discord invite
+async function initializePage() {
+    try {
+        setupInputProtection();
+        await initializeDatabase();
+        await fetchStatus();
+        checkAuthState();
+        restoreFormData();
+        setupFormSubmission();
+        
+        // Fetch Discord invite for the specified container
+        await fetchDiscordInvite("mielamalonu", "rules-container");
+    } catch (error) {
+        console.error("Initialization error:", error);
+        showErrorMessage("Nepavyko inicijuoti puslapio.");
+    }
+}
 });
