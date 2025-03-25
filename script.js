@@ -101,44 +101,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         localStorage.removeItem('formData');
     }
 
-    // Database Initialization
-    async function initializeDatabase() {
-        try {
-            // Check and initialize status table
-            const { data: statusData, error: statusError } = await supabaseClient
-                .from(CONFIG.SUPABASE.STATUS_TABLE)
-                .select('*')
-                .eq('id', 1);
-            
-            if (statusError) throw new Error("Failed to check status table");
-            
-            if (!statusData || statusData.length === 0) {
-                const { error: insertError } = await supabaseClient
-                    .from(CONFIG.SUPABASE.STATUS_TABLE)
-                    .insert({ id: 1, status: 'online' });
-                
-                if (insertError) throw new Error("Failed to create status record");
-            }
-            
-            // Check and initialize blacklist table
-            const { data: blData, error: blError } = await supabaseClient
-                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                .select('*')
-                .eq('id', 1);
-            
-            if (!blData || blData.length === 0) {
-                const { error: blInsertError } = await supabaseClient
-                    .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                    .insert({ id: 1, blacklisted_ids: '' });
-                
-                if (blInsertError) throw new Error("Failed to initialize blacklist");
-            }
-        } catch (error) {
-            console.error("Database initialization error:", error);
-            throw error;
-        }
-    }
-
     // Fetch Status 
     async function fetchStatus() {
         try {
@@ -311,7 +273,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // Handle Authentication Redirect
-    async function handleAuthRedirect(token) {
+    async function handleAuthRedirect() {
+        // Get token from URL
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        
+        if (!token) return;
+
         try {
             // Fetch user data
             const userData = await fetchDiscordUser(token);
@@ -342,8 +309,20 @@ document.addEventListener("DOMContentLoaded", async function () {
                 accessToken: token
             };
 
-            // Submit application
-            await submitApplication();
+            // Only validate and submit if on the application page
+            if (window.location.pathname.includes('application')) {
+                // Validate form first
+                if (validateForm()) {
+                    // Add loading to button
+                    if (elements.submitButton) {
+                        elements.submitButton.classList.add('button-loading');
+                        state.isButtonLoading = true;
+                    }
+
+                    // Submit application
+                    await submitApplication();
+                }
+            }
 
         } catch (error) {
             console.error("Authentication or submission error:", error);
@@ -357,17 +336,14 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Check Authentication State
-    function checkAuthState() {
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
-        if (token) {
-            // Add loading to button on redirect
-            if (elements.submitButton) {
-                elements.submitButton.classList.add('button-loading');
-                state.isButtonLoading = true;
-            }
-            handleAuthRedirect(token);
-        }
+    // Initiate Discord Authentication
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
     }
 
     // Setup form submission event listener
@@ -400,16 +376,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         // Update form reference
         elements.form = oldForm;
-    }
-
-    // Initiate Discord Authentication
-    function handleDiscordAuth() {
-        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
-        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
-        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
-        authUrl.searchParams.append("response_type", "token");
-        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
-        window.location.href = authUrl.toString();
     }
 
     // Show Success Message
@@ -449,11 +415,14 @@ document.addEventListener("DOMContentLoaded", async function () {
     async function initializePage() {
         try {
             setupInputProtection();
-            await initializeDatabase();
             await fetchStatus();
-            checkAuthState();
-            restoreFormData();
-            setupFormSubmission();
+            
+            // Only handle redirect if on application page
+            if (window.location.pathname.includes('application')) {
+                handleAuthRedirect();
+                restoreFormData();
+                setupFormSubmission();
+            }
         } catch (error) {
             console.error("Initialization error:", error);
             showErrorMessage("Nepavyko inicijuoti puslapio.");
