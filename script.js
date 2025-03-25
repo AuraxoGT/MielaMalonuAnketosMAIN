@@ -39,6 +39,106 @@ document.addEventListener("DOMContentLoaded", async function () {
         isButtonLoading: false
     };
 
+    // Prevent default behaviors on input fields
+    function setupInputProtection() {
+        const inputs = elements.form.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            // Remove any existing event listeners
+            const oldInput = input.cloneNode(true);
+            input.parentNode.replaceChild(oldInput, input);
+
+            // Add minimal event listener to prevent unwanted submissions
+            oldInput.addEventListener('keydown', function(e) {
+                // Prevent form submission on Enter key
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                }
+            });
+        });
+    }
+
+    // Input Validation
+    function validateForm() {
+        const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
+        for (let fieldId of requiredFields) {
+            const field = document.getElementById(fieldId);
+            if (!field || field.value.trim() === '') {
+                showErrorMessage(`❌ Prašome užpildyti visus laukus!`);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Restore Form Data from Local Storage
+    function restoreFormData() {
+        const savedFormData = JSON.parse(localStorage.getItem('formData') || '{}');
+        const formFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
+        
+        formFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field && savedFormData[fieldId]) {
+                field.value = savedFormData[fieldId];
+            }
+        });
+    }
+
+    // Save Form Data to Local Storage
+    function saveFormData() {
+        const formData = {
+            age: document.getElementById('age').value,
+            whyJoin: document.getElementById('whyJoin').value,
+            pl: document.getElementById('pl').value,
+            kl: document.getElementById('kl').value,
+            pc: document.getElementById('pc').value,
+            isp: document.getElementById('isp').value
+        };
+        localStorage.setItem('formData', JSON.stringify(formData));
+    }
+
+    // Clear Saved Form Data
+    function clearSavedFormData() {
+        localStorage.removeItem('formData');
+    }
+
+    // Database Initialization
+    async function initializeDatabase() {
+        try {
+            // Check and initialize status table
+            const { data: statusData, error: statusError } = await supabaseClient
+                .from(CONFIG.SUPABASE.STATUS_TABLE)
+                .select('*')
+                .eq('id', 1);
+            
+            if (statusError) throw new Error("Failed to check status table");
+            
+            if (!statusData || statusData.length === 0) {
+                const { error: insertError } = await supabaseClient
+                    .from(CONFIG.SUPABASE.STATUS_TABLE)
+                    .insert({ id: 1, status: 'online' });
+                
+                if (insertError) throw new Error("Failed to create status record");
+            }
+            
+            // Check and initialize blacklist table
+            const { data: blData, error: blError } = await supabaseClient
+                .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                .select('*')
+                .eq('id', 1);
+            
+            if (!blData || blData.length === 0) {
+                const { error: blInsertError } = await supabaseClient
+                    .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
+                    .insert({ id: 1, blacklisted_ids: '' });
+                
+                if (blInsertError) throw new Error("Failed to initialize blacklist");
+            }
+        } catch (error) {
+            console.error("Database initialization error:", error);
+            throw error;
+        }
+    }
+
     // Fetch Status 
     async function fetchStatus() {
         try {
@@ -81,19 +181,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             elements.statusDisplay.textContent = "❌ Uždaryta ❌";
             elements.statusDisplay.className = "status-offline";
         }
-    }
-
-    // Input Validation
-    function validateForm() {
-        const requiredFields = ['age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'];
-        for (let fieldId of requiredFields) {
-            const field = document.getElementById(fieldId);
-            if (!field || field.value.trim() === '') {
-                showErrorMessage(`❌ Prašome užpildyti visus laukus!`);
-                return false;
-            }
-        }
-        return true;
     }
 
     // Fetch Discord User
@@ -161,6 +248,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         state.isSubmitting = true;
 
         try {
+            // Clear saved form data on submission attempt
+            clearSavedFormData();
+
             // Check role requirement
             await checkRoleRequirement();
 
@@ -221,12 +311,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     // Handle Authentication Redirect
-    async function handleAuthRedirect() {
-        // Get token from URL
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
-        
-        if (!token) return;
-
+    async function handleAuthRedirect(token) {
         try {
             // Fetch user data
             const userData = await fetchDiscordUser(token);
@@ -257,31 +342,45 @@ document.addEventListener("DOMContentLoaded", async function () {
                 accessToken: token
             };
 
-            // Try to submit application
-            if (validateForm()) {
-                await submitApplication();
-            }
+            // Submit application
+            await submitApplication();
 
         } catch (error) {
             console.error("Authentication or submission error:", error);
             showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
+        } finally {
+            // Remove loading state
+            if (elements.submitButton) {
+                elements.submitButton.classList.remove('button-loading');
+                state.isButtonLoading = false;
+            }
         }
     }
 
-    // Initiate Discord Authentication
-    function handleDiscordAuth() {
-        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
-        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
-        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
-        authUrl.searchParams.append("response_type", "token");
-        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
-        window.location.href = authUrl.toString();
+    // Check Authentication State
+    function checkAuthState() {
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        if (token) {
+            // Add loading to button on redirect
+            if (elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+            handleAuthRedirect(token);
+        }
     }
 
     // Setup form submission event listener
     function setupFormSubmission() {
-        elements.form.addEventListener("submit", function(event) {
+        // Remove any existing submit event listeners
+        const oldForm = elements.form.cloneNode(true);
+        elements.form.parentNode.replaceChild(oldForm, elements.form);
+
+        // Add controlled submit event listener
+        oldForm.addEventListener("submit", function(event) {
+            // Absolutely prevent default form submission
             event.preventDefault();
+            event.stopPropagation();
 
             // Validate form
             if (!validateForm()) return;
@@ -292,9 +391,25 @@ document.addEventListener("DOMContentLoaded", async function () {
                 state.isButtonLoading = true;
             }
 
+            // Save form data
+            saveFormData();
+
             // Start Discord authentication
             handleDiscordAuth();
         });
+
+        // Update form reference
+        elements.form = oldForm;
+    }
+
+    // Initiate Discord Authentication
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
     }
 
     // Show Success Message
@@ -333,11 +448,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Initialize
     async function initializePage() {
         try {
+            setupInputProtection();
+            await initializeDatabase();
             await fetchStatus();
+            checkAuthState();
+            restoreFormData();
             setupFormSubmission();
-            
-            // Check for authentication redirect
-            handleAuthRedirect();
         } catch (error) {
             console.error("Initialization error:", error);
             showErrorMessage("Nepavyko inicijuoti puslapio.");
