@@ -20,13 +20,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Initialize Supabase client
     const { createClient } = supabase;
     const supabaseClient = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.API_KEY);
-    console.log("✅ Supabase client initialized!");
 
     // DOM Elements
     const elements = {
         form: document.getElementById("applicationForm"),
         statusDisplay: document.getElementById("statusDisplay"),
-        discordButton: document.getElementById("discord-login"),
         responseMessage: document.createElement("p")
     };
 
@@ -35,30 +33,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         blacklist: '',
         lastStatus: null,
         currentUser: null,
-        isSubmitting: false,
-        authError: null,
-        isAutoSubmitting: false
+        isSubmitting: false
     };
 
     // Initialize
     elements.form.appendChild(elements.responseMessage);
     initializeEventListeners();
-    setInterval(fetchStatus, 5000);
     await initializeDatabase();
-    fetchStatus();
+    await fetchStatus();
     checkAuthState();
-
-    // Helper function to check if a user is blacklisted
-    function isUserBlacklisted(userId, blacklistString) {
-        if (!blacklistString || blacklistString.trim() === '') {
-            return false;
-        }
-        
-        const userIdStr = String(userId).trim();
-        const blacklistedIds = blacklistString.split(',').map(id => id.trim());
-        
-        return blacklistedIds.includes(userIdStr);
-    }
 
     // Database Initialization
     async function initializeDatabase() {
@@ -72,7 +55,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (statusError) throw new Error("Failed to check status table");
             
             if (!statusData || statusData.length === 0) {
-                console.log("Creating initial status record...");
                 const { error: insertError } = await supabaseClient
                     .from(CONFIG.SUPABASE.STATUS_TABLE)
                     .insert({ id: 1, status: 'online' });
@@ -87,21 +69,18 @@ document.addEventListener("DOMContentLoaded", async function () {
                 .eq('id', 1);
             
             if (!blData || blData.length === 0) {
-                console.log("Initializing blacklist record...");
                 const { error: blInsertError } = await supabaseClient
                     .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                     .insert({ id: 1, blacklisted_ids: '' });
                 
                 if (blInsertError) throw new Error("Failed to initialize blacklist");
             }
-            
-            console.log("✅ Database initialized successfully!");
         } catch (error) {
             console.error("Database initialization error:", error);
         }
     }
 
-    // Fetch Status and Blacklist
+    // Fetch Status 
     async function fetchStatus() {
         try {
             // Fetch application status
@@ -111,19 +90,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 .eq('id', 1)
                 .single();
             
-            if (statusError) {
-                throw new Error("Failed to fetch status");
-            }
-            
-            // Ensure status is valid
-            let currentStatus = statusData.status;
-            if (currentStatus !== "online" && currentStatus !== "offline") {
-                currentStatus = "online";
-                await supabaseClient
-                    .from(CONFIG.SUPABASE.STATUS_TABLE)
-                    .update({ status: currentStatus })
-                    .eq('id', 1);
-            }
+            if (statusError) throw new Error("Failed to fetch status");
             
             // Fetch blacklist
             const { data: blacklistData, error: blacklistError } = await supabaseClient
@@ -132,216 +99,82 @@ document.addEventListener("DOMContentLoaded", async function () {
                 .eq('id', 1)
                 .single();
             
-            if (blacklistError) {
-                throw new Error("Failed to fetch blacklist");
-            }
+            if (blacklistError) throw new Error("Failed to fetch blacklist");
             
-            // Process blacklist data
-            let blacklistedIds = '';
-            if (blacklistData) {
-                if (typeof blacklistData.blacklisted_ids === 'string') {
-                    blacklistedIds = blacklistData.blacklisted_ids;
-                } else if (Array.isArray(blacklistData.blacklisted_ids)) {
-                    blacklistedIds = blacklistData.blacklisted_ids.join(',');
-                } else if (blacklistData.blacklisted_ids !== null && blacklistData.blacklisted_ids !== undefined) {
-                    blacklistedIds = String(blacklistData.blacklisted_ids);
-                }
-            }
-            
-            // Update application state
-            state.lastStatus = currentStatus;
-            state.blacklist = blacklistedIds;
-            updateStatusDisplay();
-            updateFormState();
+            // Update state
+            state.lastStatus = statusData.status;
+            state.blacklist = blacklistData.blacklisted_ids || '';
 
-            // If authenticated and auto-submit is pending, try to submit
-            if (state.currentUser && state.isAutoSubmitting) {
-                await autoSubmitApplication();
-            }
+            // Update UI
+            updateStatusDisplay();
         } catch (error) {
             console.error("❌ Status fetch error:", error);
-            showErrorMessage("Failed to load application status. Check console for details.");
+            showErrorMessage("Failed to load application status.");
         }
     }
 
-    // Form Submit Handler
-    async function handleFormSubmit(event) {
-        event.preventDefault();
-        
-        // Reset previous auth error
-        state.authError = null;
-        
-        // If not logged in, initiate Discord login
-        if (!state.currentUser) {
-            handleDiscordAuth();
-            return;
-        }
-        
-        // Check application status and blacklist
-        if (state.lastStatus !== "online") {
-            state.authError = "Applications closed";
-            updateFormState();
-            return;
-        }
-        
-        if (isUserBlacklisted(state.currentUser.id, state.blacklist)) {
-            state.authError = "User blacklisted";
-            updateFormState();
-            return;
-        }
-        
-        // Existing submission logic
-        await submitApplicationManually(event);
+    // Check Authentication State
+    function checkAuthState() {
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        if (token) handleAuthRedirect(token);
     }
 
-    // Manual Application Submission
-    async function submitApplicationManually(event) {
-        if (state.isSubmitting) return;
-        state.isSubmitting = true;
-        
-        clearMessages();
-
-        const submitButton = event.target.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = "Pateikiama...";
-
+    // Handle Authentication Redirect
+    async function handleAuthRedirect(token) {
         try {
-            // Validate additional requirements
-            await validateAllRequirements();
+            // Fetch user data
+            const userData = await fetchDiscordUser(token);
             
-            // If validation passes, gather data and submit
-            const formData = gatherFormData();
-            await submitApplication(formData);
+            // Check if all form fields are filled
+            const requiredFields = [
+                'age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'
+            ];
 
-            submitButton.textContent = "Pateikta!";
-            showSuccessMessage("✅ Aplikacija pateikta!");
-            elements.form.reset();
-            
-        } catch (error) {
-            handleSubmissionError(error);
-            submitButton.textContent = "Bandykite dar kartą";
-        } finally {
-            // Reset submission state after delay
-            setTimeout(() => {
-                state.isSubmitting = false;
-                submitButton.textContent = "Pateikti";
-                submitButton.disabled = false;
-                updateFormState();
-            }, 3000);
-        }
-    }
+            const isFormComplete = requiredFields.every(fieldId => {
+                const field = document.getElementById(fieldId);
+                return field && field.value.trim() !== '';
+            });
 
-    // Auto Application Submission
-    async function autoSubmitApplication() {
-        // Prevent multiple submissions
-        if (state.isSubmitting || !state.isAutoSubmitting) return;
-        
-        state.isSubmitting = true;
-        clearMessages();
+            if (!isFormComplete) {
+                showErrorMessage("Prašome užpildyti visus anketos laukus prieš teikiant!");
+                return;
+            }
 
-        try {
-            // Validate additional requirements
-            await validateAllRequirements();
-            
-            // Gather form data automatically
-            const formData = {
-                userId: state.currentUser.id,
-                age: document.getElementById("age").value.trim(),
-                reason: document.getElementById("whyJoin").value.trim(),
-                pl: document.getElementById("pl").value.trim(),
-                kl: document.getElementById("kl").value.trim(),
-                pc: document.getElementById("pc").value.trim(),
-                isp: document.getElementById("isp").value.trim()
+            // Check application status
+            if (state.lastStatus !== "online") {
+                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
+                return;
+            }
+
+            // Check if user is blacklisted
+            if (isUserBlacklisted(userData.id)) {
+                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                return;
+            }
+
+            // Set current user
+            state.currentUser = {
+                ...userData,
+                accessToken: token
             };
 
             // Submit application
-            await submitApplication(formData);
+            await submitApplication();
 
-            // Show success message
-            showSuccessMessage("✅ Aplikacija pateikta!");
-            elements.form.reset();
-            
-            // Disable auto-submit
-            state.isAutoSubmitting = false;
-            
         } catch (error) {
-            handleSubmissionError(error);
-        } finally {
-            state.isSubmitting = false;
-            updateFormState();
+            console.error("Authentication or submission error:", error);
+            showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
         }
     }
 
-    // Validate Additional Requirements
-    async function validateAllRequirements() {
-        try {
-            const response = await fetch("https://mmapi-production.up.railway.app/api/check-role", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ userId: state.currentUser.id })
-            });
-
-            if (!response.ok) throw new Error("Server error while checking role");
-            const data = await response.json();
-
-            if (data.hasRole) throw new Error("LA");
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    // Gather Form Data
-    function gatherFormData() {
-        return {
-            userId: state.currentUser.id,
-            age: document.getElementById("age").value.trim(),
-            reason: document.getElementById("whyJoin").value.trim(),
-            pl: document.getElementById("pl").value.trim(),
-            kl: document.getElementById("kl").value.trim(),
-            pc: document.getElementById("pc").value.trim(),
-            isp: document.getElementById("isp").value.trim()
-        };
-    }
-
-    // Submit Application
-    async function submitApplication(data) {
-        const appId = `${data.userId.slice(0, 16)}-${Date.now()}`;
-
-        const payload = {
-            variables: [
-                { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
-                { name: "age", variable: "{event_age}", value: `${data.age}` },
-                { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
-                { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
-                { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
-                { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
-                { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
-                { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
-            ]
-        };
-
-        const response = await fetch("https://proxy-zzi2.onrender.com/send-to-botghost", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error("BotGhost API error");
-    }
-
-    // Discord Authentication
-    function handleDiscordAuth() {
-        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
-        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
-        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
-        authUrl.searchParams.append("response_type", "token");
-        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
-        window.location.href = authUrl.toString();
+    // Check if user is blacklisted
+    function isUserBlacklisted(userId) {
+        if (!state.blacklist) return false;
+        
+        const userIdStr = String(userId).trim();
+        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
+        
+        return blacklistedIds.includes(userIdStr);
     }
 
     // Fetch Discord User
@@ -372,66 +205,87 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Form State Update
-    function updateFormState() {
-        if (!elements.form) return;
-        
-        const submitBtn = elements.form.querySelector('button[type="submit"]');
-        if (!submitBtn) return;
-        
-        // Determine button text and state based on authentication and errors
-        if (!state.currentUser) {
-            submitBtn.textContent = "Prisijungti per Discord";
-            submitBtn.disabled = false;
-            clearMessages();
-        } else {
-            submitBtn.textContent = "Pateikti";
-            
-            // Handle specific error states after authentication
-            if (state.authError === "Applications closed") {
-                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
-                submitBtn.disabled = true;
-            } else if (state.authError === "User blacklisted") {
-                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
-                submitBtn.disabled = true;
-            } else {
-                submitBtn.disabled = false;
-                clearMessages();
-            }
-        }
-    }
+    // Submit Application
+    async function submitApplication() {
+        if (state.isSubmitting) return;
+        state.isSubmitting = true;
 
-    // Check Auth State on Page Load
-    function checkAuthState() {
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
-        if (token) handleAuthRedirect(token);
-    }
-
-    // Handle Auth Redirect
-    async function handleAuthRedirect(token) {
         try {
-            const userData = await fetchDiscordUser(token);
-            state.currentUser = {
-                ...userData,
-                accessToken: token
-            };
-            
-            // Set auto-submit flag
-            state.isAutoSubmitting = true;
-            
-            window.history.replaceState({}, document.title, window.location.pathname);
-            updateFormState();
+            // Check role requirement
+            await checkRoleRequirement();
 
-            // Attempt to auto-submit if status is already loaded
-            if (state.lastStatus !== null) {
-                await autoSubmitApplication();
-            }
+            // Prepare application data
+            const data = {
+                userId: state.currentUser.id,
+                age: document.getElementById("age").value.trim(),
+                reason: document.getElementById("whyJoin").value.trim(),
+                pl: document.getElementById("pl").value.trim(),
+                kl: document.getElementById("kl").value.trim(),
+                pc: document.getElementById("pc").value.trim(),
+                isp: document.getElementById("isp").value.trim()
+            };
+
+            const appId = `${data.userId.slice(0, 16)}-${Date.now()}`;
+
+            const payload = {
+                variables: [
+                    { name: "userId", variable: "{event_userId}", value: `${data.userId}` },
+                    { name: "age", variable: "{event_age}", value: `${data.age}` },
+                    { name: "reason", variable: "{event_reason}", value: `${data.reason}` },
+                    { name: "pl", variable: "{event_pl}", value: `${data.pl}/10` },
+                    { name: "kl", variable: "{event_kl}", value: `${data.kl}/10` },
+                    { name: "pc", variable: "{event_pc}", value: `${data.pc}` },
+                    { name: "isp", variable: "{event_isp}", value: `${data.isp}` },
+                    { name: "applicationId", variable: "{event_appId}", value: `${appId}` }
+                ]
+            };
+
+            const response = await fetch("https://proxy-zzi2.onrender.com/send-to-botghost", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "ef0576a7eb018e3d7cb3a7d4564069245fa8a9fb2b4dd74b5bd3d20c19983041"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("BotGhost API error");
+
+            // Show success message
+            showSuccessMessage("✅ Aplikacija pateikta!");
+            
+            // Reset form
+            elements.form.reset();
+
         } catch (error) {
-            showErrorMessage("Failed to authenticate with Discord");
+            handleSubmissionError(error);
+        } finally {
+            state.isSubmitting = false;
         }
     }
 
-    // Status Display Update
+    // Check Role Requirement
+    async function checkRoleRequirement() {
+        try {
+            const response = await fetch("https://mmapi-production.up.railway.app/api/check-role", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ userId: state.currentUser.id })
+            });
+
+            if (!response.ok) throw new Error("Server error while checking role");
+            
+            const data = await response.json();
+
+            if (data.hasRole) throw new Error("LA");
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Update Status Display
     function updateStatusDisplay() {
         if (state.lastStatus === "online") {
             elements.statusDisplay.textContent = "✅ Atidaryta ✅";
@@ -442,7 +296,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Error Handling
+    // Handle Submission Error
     function handleSubmissionError(error) {
         console.error("Submission error:", error);
         switch(error.message) {
@@ -454,24 +308,33 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Message Handling
-    function clearMessages() {
-        elements.responseMessage.textContent = "";
-        elements.responseMessage.className = "";
-    }
-
-    function showErrorMessage(message) {
-        elements.responseMessage.textContent = message;
-        elements.responseMessage.className = "error-message";
-    }
-
+    // Show Success Message
     function showSuccessMessage(message) {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "success-message";
     }
 
-    // Event Listeners
+    // Show Error Message
+    function showErrorMessage(message) {
+        elements.responseMessage.textContent = message;
+        elements.responseMessage.className = "error-message";
+    }
+
+    // Initialize Event Listeners
     function initializeEventListeners() {
-        elements.form.addEventListener("submit", handleFormSubmit);
+        elements.form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            handleDiscordAuth();
+        });
+    }
+
+    // Initiate Discord Authentication
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
     }
 });
