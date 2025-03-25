@@ -25,7 +25,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     const elements = {
         form: document.getElementById("applicationForm"),
         statusDisplay: document.getElementById("statusDisplay"),
-        responseMessage: document.createElement("p")
+        responseMessage: document.createElement("p"),
+        submitButton: document.getElementById("submitButton")
     };
 
     // State Management
@@ -33,7 +34,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         blacklist: '',
         lastStatus: null,
         currentUser: null,
-        isSubmitting: false
+        isSubmitting: false,
+        lastSubmissionTime: 0
     };
 
     // Restore Form Data from Local Storage
@@ -157,26 +159,19 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Fetch user data
             const userData = await fetchDiscordUser(token);
             
-            // Check if all form fields are filled
-            const requiredFields = [
-                'age', 'whyJoin', 'pl', 'kl', 'pc', 'isp'
-            ];
-
-            const isFormComplete = requiredFields.every(fieldId => {
-                const field = document.getElementById(fieldId);
-                return field && field.value.trim() !== '';
-            });
-
-            if (!isFormComplete) {
-                showErrorMessage("Prašome užpildyti visus anketos laukus prieš teikiant!");
-                return;
-            }
-
             // Check application status
             if (state.lastStatus !== "online") {
                 showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
                 return;
             }
+
+            // Prevent rapid submissions
+            const currentTime = Date.now();
+            if (currentTime - state.lastSubmissionTime < 30000) { // 30 seconds cooldown
+                showErrorMessage("❌ Palaukite prieš teikdami dar vieną anketą!");
+                return;
+            }
+            state.lastSubmissionTime = currentTime;
 
             // Check if user is blacklisted
             if (isUserBlacklisted(userData.id)) {
@@ -196,6 +191,11 @@ document.addEventListener("DOMContentLoaded", async function () {
         } catch (error) {
             console.error("Authentication or submission error:", error);
             showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
+            
+            // Remove loading animation if there's an error
+            if (elements.submitButton) {
+                elements.submitButton.classList.remove('button-loading');
+            }
         }
     }
 
@@ -296,6 +296,11 @@ document.addEventListener("DOMContentLoaded", async function () {
             handleSubmissionError(error);
         } finally {
             state.isSubmitting = false;
+            
+            // Remove loading animation
+            if (elements.submitButton) {
+                elements.submitButton.classList.remove('button-loading');
+            }
         }
     }
 
@@ -359,8 +364,24 @@ document.addEventListener("DOMContentLoaded", async function () {
     function initializeEventListeners() {
         elements.form.addEventListener("submit", async (event) => {
             event.preventDefault();
+            
+            // Add loading animation to submit button
+            if (elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+            }
+            
             saveFormData();
-            handleDiscordAuth();
+            
+            try {
+                handleDiscordAuth();
+            } catch (error) {
+                console.error("Submission error:", error);
+                
+                // Remove loading animation if there's an error
+                if (elements.submitButton) {
+                    elements.submitButton.classList.remove('button-loading');
+                }
+            }
         });
     }
 
