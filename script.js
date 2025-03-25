@@ -99,6 +99,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Clear Saved Form Data
     function clearSavedFormData() {
         localStorage.removeItem('formData');
+        localStorage.removeItem('discordToken');
     }
 
     // Database Initialization
@@ -294,6 +295,11 @@ document.addEventListener("DOMContentLoaded", async function () {
             // Show success message
             showSuccessMessage("✅ Aplikacija pateikta!");
             
+            // Hide submit button
+            if (elements.submitButton) {
+                elements.submitButton.style.display = 'none';
+            }
+
             // Reset form
             elements.form.reset();
 
@@ -313,6 +319,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Handle Authentication Redirect
     async function handleAuthRedirect(token) {
         try {
+            // Store token in local storage for potential reuse
+            localStorage.setItem('discordToken', token);
+
             // Fetch user data
             const userData = await fetchDiscordUser(token);
             
@@ -348,6 +357,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         } catch (error) {
             console.error("Authentication or submission error:", error);
             showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
+            
+            // Redirect to main page on error
+            window.location.href = "https://anketa.mielamalonu.com";
         } finally {
             // Remove loading state
             if (elements.submitButton) {
@@ -359,7 +371,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Check Authentication State
     function checkAuthState() {
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token") || 
+                      localStorage.getItem('discordToken');
+        
         if (token) {
             // Add loading to button on redirect
             if (elements.submitButton) {
@@ -439,9 +453,17 @@ document.addEventListener("DOMContentLoaded", async function () {
         switch(error.message) {
             case "LA":
                 showErrorMessage("❌ Jūs jau esate užpildęs anketą!");
+                // Redirect to main page
+                setTimeout(() => {
+                    window.location.href = "https://anketa.mielamalonu.com";
+                }, 3000);
                 break;
             default:
                 showErrorMessage("❌ Įvyko klaida pateikiant anketą. Bandykite dar kartą.");
+                // Redirect to main page
+                setTimeout(() => {
+                    window.location.href = "https://anketa.mielamalonu.com";
+                }, 3000);
         }
     }
 
