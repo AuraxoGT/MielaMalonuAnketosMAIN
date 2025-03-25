@@ -302,6 +302,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             // Reset form
             elements.form.reset();
+ setTimeout(() => {
+            window.location.href = "https://anketa.mielamalonu.com";
+        }, 5000);
 
         } catch (error) {
             handleSubmissionError(error);
@@ -456,14 +459,14 @@ document.addEventListener("DOMContentLoaded", async function () {
                 // Redirect to main page
                 setTimeout(() => {
                     window.location.href = "https://anketa.mielamalonu.com";
-                }, 3000);
+                }, 5000);
                 break;
             default:
                 showErrorMessage("❌ Įvyko klaida pateikiant anketą. Bandykite dar kartą.");
                 // Redirect to main page
                 setTimeout(() => {
                     window.location.href = "https://anketa.mielamalonu.com";
-                }, 3000);
+                }, 5000);
         }
     }
 
