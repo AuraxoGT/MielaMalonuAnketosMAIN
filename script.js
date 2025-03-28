@@ -507,7 +507,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         console.error("Submission error:", error);
         switch(error.message) {
             case "Discord authentication required":
-                showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti su Discord!");
+                showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti per Discord! (Spauskite mygtuką viršuje!)");
                 break;
             case "Applications closed":
                 showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
