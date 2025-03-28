@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // State Management
     let state = {
-        blacklist: '',
+        blacklist: [],  // Changed to array for more robust handling
         lastStatus: null,
         currentUser: null,
         isSubmitting: false,
@@ -125,14 +125,27 @@ document.addEventListener("DOMContentLoaded", async function () {
             const { data: blData, error: blError } = await supabaseClient
                 .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
                 .select('*')
-                .eq('id', 1);
+                .eq('id', 1)
+                .single();
             
-            if (!blData || blData.length === 0) {
+            if (blError) {
+                console.error("Blacklist fetch error:", blError);
+                throw new Error("Failed to fetch blacklist");
+            }
+
+            if (!blData || !blData.blacklisted_ids) {
+                console.log("Creating initial blacklist record");
                 const { error: blInsertError } = await supabaseClient
                     .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                    .insert({ id: 1, blacklisted_ids: '' });
+                    .insert({ 
+                        id: 1, 
+                        blacklisted_ids: '' 
+                    });
                 
-                if (blInsertError) throw new Error("Failed to initialize blacklist");
+                if (blInsertError) {
+                    console.error("Blacklist insert error:", blInsertError);
+                    throw new Error("Failed to initialize blacklist");
+                }
             }
         } catch (error) {
             console.error("Database initialization error:", error);
@@ -161,9 +174,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             if (blacklistError) throw new Error("Failed to fetch blacklist");
             
-            // Update state
+            // Update state with improved blacklist parsing
             state.lastStatus = statusData.status;
-            state.blacklist = blacklistData.blacklisted_ids || '';
+            state.blacklist = (blacklistData.blacklisted_ids || '')
+                .split(',')
+                .map(id => id.trim())
+                .filter(id => id !== '');
+
+            console.log("Blacklist loaded:", state.blacklist);
 
             // Update UI
             updateStatusDisplay();
@@ -186,12 +204,15 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Check if user is blacklisted
     function isUserBlacklisted(userId) {
-        if (!state.blacklist) return false;
+        if (!userId || state.blacklist.length === 0) return false;
         
-        const userIdStr = String(userId).trim();
-        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
+        console.log("Checking Blacklist:", {
+            userId,
+            blacklist: state.blacklist,
+            isBlacklisted: state.blacklist.includes(String(userId))
+        });
         
-        return blacklistedIds.includes(userIdStr);
+        return state.blacklist.includes(String(userId));
     }
 
     // Fetch Discord User
@@ -254,6 +275,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             // Check if user is blacklisted
             if (isUserBlacklisted(state.currentUser.id)) {
+                console.error("User is blacklisted:", state.currentUser.id);
                 throw new Error("BLACKLISTED");
             }
 
@@ -351,6 +373,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             // Check if user is blacklisted
             if (isUserBlacklisted(userData.id)) {
+                console.error("Blacklisted user attempted to submit:", userData.id);
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
                 // Redirect to main page after 5 seconds
                 setTimeout(() => {
@@ -545,39 +568,3 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Start initialization
     initializePage();
 });
-
-// Fetch Discord Invite function added outside the main event listener
-async function fetchDiscordInvite(inviteCode, containerClass) {
-    try {
-        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
-        const data = await response.json();
-        if (data.guild) {
-            const container = document.querySelector(`.${containerClass}`);
-            if (!container) return console.error("Container not found!");
-            
-            // Remove any existing invite before adding a new one
-            const oldInvite = container.querySelector(".discord-invite");
-            if (oldInvite) oldInvite.remove();
-            
-            // Create the Discord invite HTML structure dynamically
-            const inviteHTML = `
-                <div class="discord-invite">
-                    <div class="invite-banner">
-                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
-                    </div>
-                    <div class="invite-content">
-                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
-                        <div class="server-info">
-                            <h3>${data.guild.name}</h3>
-                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
-                        </div>
-                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
-                    </div>
-                </div>
-            `;
-            container.insertAdjacentHTML("beforeend", inviteHTML);
-        }
-    } catch (error) {
-        console.error("Error fetching Discord invite:", error);
-    }
-}
