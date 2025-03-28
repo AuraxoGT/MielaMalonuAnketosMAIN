@@ -36,7 +36,8 @@ document.addEventListener("DOMContentLoaded", async function () {
         currentUser: null,
         isSubmitting: false,
         lastSubmissionTime: 0,
-        isButtonLoading: false
+        isButtonLoading: false,
+        isAuthenticating: false // New flag to prevent multiple auth attempts
     };
 
     // Prevent default behaviors on input fields
@@ -326,9 +327,84 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // Revised Check Authentication State
+    function checkAuthState() {
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        
+        // Only proceed if there's a new token from redirect
+        if (token) {
+            // Clear hash to prevent loops
+            window.history.replaceState(null, null, window.location.pathname);
+
+            // Add loading to button on redirect
+            if (elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+            handleAuthRedirect(token);
+        }
+    }
+
+    // Setup form submission event listener
+    function setupFormSubmission() {
+        // Remove any existing submit event listeners
+        const oldForm = elements.form.cloneNode(true);
+        elements.form.parentNode.replaceChild(oldForm, elements.form);
+
+        // Add controlled submit event listener
+        oldForm.addEventListener("submit", function(event) {
+            // Absolutely prevent default form submission
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Prevent multiple auth attempts
+            if (state.isAuthenticating) return;
+            state.isAuthenticating = true;
+
+            // Validate form
+            if (!validateForm()) {
+                state.isAuthenticating = false;
+                return;
+            }
+
+            // Add loading state to button
+            if (elements.submitButton) {
+                elements.submitButton.classList.add('button-loading');
+                state.isButtonLoading = true;
+            }
+
+            // Save form data
+            saveFormData();
+
+            // Reset authentication state after a delay
+            setTimeout(() => {
+                state.isAuthenticating = false;
+            }, 5000);
+
+            // Start Discord authentication
+            handleDiscordAuth();
+        });
+
+        // Update form reference
+        elements.form = oldForm;
+    }
+
+    // Initiate Discord Authentication
+    function handleDiscordAuth() {
+        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
+        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
+        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
+        authUrl.searchParams.append("response_type", "token");
+        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
+        window.location.href = authUrl.toString();
+    }
+
     // Handle Authentication Redirect
     async function handleAuthRedirect(token) {
         try {
+            // Prevent multiple submissions
+            if (state.isSubmitting) return;
+
             // Store token in local storage for potential reuse
             localStorage.setItem('discordToken', token);
 
@@ -379,65 +455,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (elements.submitButton) {
                 elements.submitButton.classList.remove('button-loading');
                 state.isButtonLoading = false;
+                state.isSubmitting = false;
             }
         }
-    }
-
-    // Check Authentication State
-    function checkAuthState() {
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token") || 
-                      localStorage.getItem('discordToken');
-        
-        if (token) {
-            // Add loading to button on redirect
-            if (elements.submitButton) {
-                elements.submitButton.classList.add('button-loading');
-                state.isButtonLoading = true;
-            }
-            handleAuthRedirect(token);
-        }
-    }
-
-    // Setup form submission event listener
-    function setupFormSubmission() {
-        // Remove any existing submit event listeners
-        const oldForm = elements.form.cloneNode(true);
-        elements.form.parentNode.replaceChild(oldForm, elements.form);
-
-        // Add controlled submit event listener
-        oldForm.addEventListener("submit", function(event) {
-            // Absolutely prevent default form submission
-            event.preventDefault();
-            event.stopPropagation();
-
-            // Validate form
-            if (!validateForm()) return;
-
-            // Add loading state to button
-            if (elements.submitButton) {
-                elements.submitButton.classList.add('button-loading');
-                state.isButtonLoading = true;
-            }
-
-            // Save form data
-            saveFormData();
-
-            // Start Discord authentication
-            handleDiscordAuth();
-        });
-
-        // Update form reference
-        elements.form = oldForm;
-    }
-
-    // Initiate Discord Authentication
-    function handleDiscordAuth() {
-        const authUrl = new URL("https://discord.com/api/oauth2/authorize");
-        authUrl.searchParams.append("client_id", CONFIG.DISCORD.CLIENT_ID);
-        authUrl.searchParams.append("redirect_uri", CONFIG.DISCORD.REDIRECT_URI);
-        authUrl.searchParams.append("response_type", "token");
-        authUrl.searchParams.append("scope", CONFIG.DISCORD.SCOPES.join(" "));
-        window.location.href = authUrl.toString();
     }
 
     // Show Success Message
@@ -530,9 +550,11 @@ document.addEventListener("DOMContentLoaded", async function () {
             setupInputProtection();
             await initializeDatabase();
             await fetchStatus();
-            checkAuthState();
             restoreFormData();
             setupFormSubmission();
+            
+            // Only check auth state AFTER everything else is set up
+            checkAuthState();
             
             // Fetch Discord invite for the specified container
             await fetchDiscordInvite("mielamalonu", "rules-container");
@@ -545,39 +567,3 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Start initialization
     initializePage();
 });
-
-// Fetch Discord Invite function added outside the main event listener
-async function fetchDiscordInvite(inviteCode, containerClass) {
-    try {
-        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
-        const data = await response.json();
-        if (data.guild) {
-            const container = document.querySelector(`.${containerClass}`);
-            if (!container) return console.error("Container not found!");
-            
-            // Remove any existing invite before adding a new one
-            const oldInvite = container.querySelector(".discord-invite");
-            if (oldInvite) oldInvite.remove();
-            
-            // Create the Discord invite HTML structure dynamically
-            const inviteHTML = `
-                <div class="discord-invite">
-                    <div class="invite-banner">
-                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
-                    </div>
-                    <div class="invite-content">
-                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
-                        <div class="server-info">
-                            <h3>${data.guild.name}</h3>
-                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
-                        </div>
-                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
-                    </div>
-                </div>
-            `;
-            container.insertAdjacentHTML("beforeend", inviteHTML);
-        }
-    } catch (error) {
-        console.error("Error fetching Discord invite:", error);
-    }
-}
