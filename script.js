@@ -163,7 +163,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             // Update state
             state.lastStatus = statusData.status;
-            state.blacklist = blacklistData.blacklisted_ids || '';
+            state.blacklist = blacklistData.blacklist || '';
 
             // Update UI
             updateStatusDisplay();
