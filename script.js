@@ -162,9 +162,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             if (blacklistError) throw new Error("Failed to fetch blacklist");
             
-            // Update state
+            // Update state with careful type conversion
             state.lastStatus = statusData.status;
-            state.blacklist = blacklistData.blacklist || '';
+            state.blacklist = blacklistData.blacklist ? String(blacklistData.blacklist) : '';
 
             // Update UI
             updateStatusDisplay();
@@ -187,11 +187,24 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Check if user is blacklisted
     function isUserBlacklisted(userId) {
-        if (!state.blacklist) return false;
-        
+        // Enhanced blacklist check with multiple safeguards
+        if (!userId) return false;
+
+        // Ensure blacklist is a string
+        const blacklistStr = typeof state.blacklist === 'string' 
+            ? state.blacklist.trim() 
+            : '';
+
+        // If blacklist is empty, return false
+        if (!blacklistStr) return false;
+
         const userIdStr = String(userId).trim();
-        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
         
+        // Split and trim blacklisted IDs, handling potential variations
+        const blacklistedIds = blacklistStr.split(',')
+            .map(id => id.trim())
+            .filter(id => id !== '');
+
         return blacklistedIds.includes(userIdStr);
     }
 
