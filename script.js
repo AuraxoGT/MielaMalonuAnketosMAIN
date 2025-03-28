@@ -36,8 +36,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         currentUser: null,
         isSubmitting: false,
         lastSubmissionTime: 0,
-        isButtonLoading: false,
-        isAuthenticating: false
+        isButtonLoading: false
     };
 
     // Prevent default behaviors on input fields
@@ -131,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (!blData || blData.length === 0) {
                 const { error: blInsertError } = await supabaseClient
                     .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                    .insert({ id: 1, blacklist: '' });
+                    .insert({ id: 1, blacklisted_ids: '' });
                 
                 if (blInsertError) throw new Error("Failed to initialize blacklist");
             }
@@ -162,9 +161,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             if (blacklistError) throw new Error("Failed to fetch blacklist");
             
-            // Update state with careful type conversion
+            // Update state
             state.lastStatus = statusData.status;
-            state.blacklist = blacklistData.blacklist ? String(blacklistData.blacklist) : '';
+            state.blacklist = blacklistData.blacklisted_ids || '';
 
             // Update UI
             updateStatusDisplay();
@@ -187,28 +186,15 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Check if user is blacklisted
     function isUserBlacklisted(userId) {
-        // Enhanced blacklist check with multiple safeguards
-        if (!userId) return false;
-
-        // Ensure blacklist is a string
-        const blacklistStr = typeof state.blacklist === 'string' 
-            ? state.blacklist.trim() 
-            : '';
-
-        // If blacklist is empty, return false
-        if (!blacklistStr) return false;
-
-        const userIdStr = String(userId).trim();
+        if (!state.blacklist) return false;
         
-        // Split and trim blacklisted IDs, handling potential variations
-        const blacklistedIds = blacklistStr.split(',')
-            .map(id => id.trim())
-            .filter(id => id !== '');
-
+        const userIdStr = String(userId).trim();
+        const blacklistedIds = state.blacklist.split(',').map(id => id.trim());
+        
         return blacklistedIds.includes(userIdStr);
     }
 
-    // Fetch Discord User with Enhanced Debugging
+    // Fetch Discord User
     async function fetchDiscordUser(token) {
         try {
             const [userData, presenceData] = await Promise.all([
@@ -220,21 +206,10 @@ document.addEventListener("DOMContentLoaded", async function () {
                 })
             ]);
 
-            // Log response status codes
-            console.log("User Data Response Status:", userData.status);
-            console.log("Presence Data Response Status:", presenceData.status);
-
             const user = await userData.json();
             const presence = await presenceData.json();
 
-            // Log full response bodies
-            console.log("User Data:", user);
-            console.log("Presence Data:", presence);
-
-            if (!user.id) {
-                console.error("Invalid user data received", user);
-                throw new Error("Invalid user data");
-            }
+            if (!user.id) throw new Error("Invalid user data");
             
             return {
                 ...user,
@@ -242,16 +217,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             };
 
         } catch (error) {
-            console.error("Detailed Discord API error:", {
-                message: error.message,
-                stack: error.stack,
-                token: token ? "Token present" : "No token"
-            });
+            console.error("Discord API error:", error);
             throw error;
         }
     }
 
-    // Check Role Requirement with Enhanced Logging
+    // Check Role Requirement
     async function checkRoleRequirement() {
         try {
             const response = await fetch("https://mmapi-production.up.railway.app/api/check-role", {
@@ -262,22 +233,17 @@ document.addEventListener("DOMContentLoaded", async function () {
                 body: JSON.stringify({ userId: state.currentUser.id })
             });
 
-            console.log("Role Check Response Status:", response.status);
+            if (!response.ok) throw new Error("Server error while checking role");
             
             const data = await response.json();
-            console.log("Role Check Response Data:", data);
 
-            if (data.hasRole) {
-                console.log("Role Check Failed: User already has role");
-                throw new Error("LA");
-            }
+            if (data.hasRole) throw new Error("LA");
         } catch (error) {
-            console.error("Role Check Error:", error);
             throw error;
         }
     }
 
-    // Submit Application with Detailed Error Handling
+    // Submit Application
     async function submitApplication() {
         if (state.isSubmitting) return;
         state.isSubmitting = true;
@@ -360,48 +326,24 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Handle Authentication Redirect with Comprehensive Error Logging
+    // Handle Authentication Redirect
     async function handleAuthRedirect(token) {
         try {
-            console.log("Starting handleAuthRedirect with token:", token ? "Token present" : "No token");
-
-            // More detailed checks
-            if (!token) {
-                console.error("No authentication token found");
-                throw new Error("No authentication token");
-            }
-
-            // Prevent multiple submissions
-            if (state.isSubmitting) {
-                console.log("Submission already in progress");
-                return;
-            }
-
             // Store token in local storage for potential reuse
             localStorage.setItem('discordToken', token);
 
-            // Fetch user data with more detailed logging
-            let userData;
-            try {
-                userData = await fetchDiscordUser(token);
-                console.log("Successfully fetched user data:", userData);
-            } catch (fetchError) {
-                console.error("User fetch failed:", fetchError);
-                showErrorMessage(`Nepavyko gauti vartotojo duomenų: ${fetchError.message}`);
-                return;
-            }
-
-            // Existing checks with more logging
+            // Fetch user data
+            const userData = await fetchDiscordUser(token);
+            
+            // Check application status
             if (state.lastStatus !== "online") {
-                console.log("Application status not online");
                 showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
                 return;
             }
 
             // Prevent rapid submissions
             const currentTime = Date.now();
-            if (currentTime - state.lastSubmissionTime < 30000) {
-                console.log("Submission too rapid");
+            if (currentTime - state.lastSubmissionTime < 30000) { // 30 seconds cooldown
                 showErrorMessage("❌ Palaukite prieš teikdami dar vieną anketą!");
                 return;
             }
@@ -409,8 +351,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             // Check if user is blacklisted
             if (isUserBlacklisted(userData.id)) {
-                console.log("User is blacklisted:", userData.id);
                 showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                // Redirect to main page after 5 seconds
                 setTimeout(() => {
                     window.location.href = "https://anketa.mielamalonu.com";
                 }, 5000);
@@ -423,96 +365,30 @@ document.addEventListener("DOMContentLoaded", async function () {
                 accessToken: token
             };
 
-            // Submit application with more detailed error handling
-            try {
-                await submitApplication();
-            } catch (submitError) {
-                console.error("Application submission failed:", submitError);
-                showErrorMessage(`Nepavyko pateikti anketos: ${submitError.message}`);
-                throw submitError;
-            }
+            // Submit application
+            await submitApplication();
 
         } catch (error) {
-            console.error("Full Authentication/Submission Error:", {
-                message: error.message,
-                stack: error.stack,
-                name: error.name,
-            });
-
-            // Create a detailed error message
-            const errorDetails = `Klaida: ${error.message}\nIšsami informacija: ${error.stack}`;
-            showErrorMessage(errorDetails);
+            console.error("Authentication or submission error:", error);
+            showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
+            
+            // Redirect to main page on error
+            window.location.href = "https://anketa.mielamalonu.com";
+        } finally {
+            // Remove loading state
+            if (elements.submitButton) {
+                elements.submitButton.classList.remove('button-loading');
+                state.isButtonLoading = false;
+            }
         }
     }
 
-    // Submission Error Handler with Persistent Error Display
-    function handleSubmissionError(error) {
-        console.error("Full Submission Error:", error);
-        
-        // Reset button loading state
-        if (elements.submitButton) {
-            elements.submitButton.classList.remove('button-loading');
-            state.isButtonLoading = false;
-        }
-
-        let errorMessage = "❌ Nežinoma klaida. Bandykite dar kartą.";
-
-        switch(error.message) {
-            case "BLACKLISTED":
-                errorMessage = "❌ Esate užblokuotas!";
-                break;
-            case "LA":
-                errorMessage = "❌ Jūs jau esate užpildęs anketą!";
-                break;
-            default:
-                // If it's an error from fetch or other API calls, log more details
-                if (error.response) {
-                    errorMessage += ` Detalės: ${JSON.stringify(error.response)}`;
-                }
-        }
-
-        // Create a persistent error message
-        const persistentErrorDiv = document.createElement('div');
-        persistentErrorDiv.style.position = 'fixed';
-        persistentErrorDiv.style.top = '10%';
-        persistentErrorDiv.style.left = '50%';
-        persistentErrorDiv.style.transform = 'translateX(-50%)';
-        persistentErrorDiv.style.backgroundColor = 'red';
-        persistentErrorDiv.style.color = 'white';
-        persistentErrorDiv.style.padding = '20px';
-        persistentErrorDiv.style.zIndex = '1000';
-        persistentErrorDiv.style.fontSize = '18px';
-        persistentErrorDiv.innerHTML = `
-            <h2>Klaida Pateikiant Anketą</h2>
-            <p>${errorMessage}</p>
-            <button id="debugCloseError" style="margin-top: 10px; padding: 5px 10px;">Uždaryti</button>
-        `;
-
-        document.body.appendChild(persistentErrorDiv);
-
-        // Add close button functionality
-        const closeButton = persistentErrorDiv.querySelector('#debugCloseError');
-        closeButton.addEventListener('click', () => {
-            persistentErrorDiv.remove();
-        });
-
-        // Log additional error details to console
-        console.error("Detailed Error Information:", {
-            errorMessage: error.message,
-            errorStack: error.stack,
-            fullError: error
-        });
-    }
-
-    // Revised Check Authentication State
+    // Check Authentication State
     function checkAuthState() {
-        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
+        const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token") || 
+                      localStorage.getItem('discordToken');
         
-        // Only proceed if there's a new token from redirect
         if (token) {
-            // Clear hash to prevent loops
-            window.history.replaceState(null, null, window.location.pathname);
-
             // Add loading to button on redirect
             if (elements.submitButton) {
                 elements.submitButton.classList.add('button-loading');
@@ -534,15 +410,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             event.preventDefault();
             event.stopPropagation();
 
-            // Prevent multiple auth attempts
-            if (state.isAuthenticating) return;
-            state.isAuthenticating = true;
-
             // Validate form
-            if (!validateForm()) {
-                state.isAuthenticating = false;
-                return;
-            }
+            if (!validateForm()) return;
 
             // Add loading state to button
             if (elements.submitButton) {
@@ -552,11 +421,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             // Save form data
             saveFormData();
-
-            // Reset authentication state after a delay
-            setTimeout(() => {
-                state.isAuthenticating = false;
-            }, 5000);
 
             // Start Discord authentication
             handleDiscordAuth();
@@ -588,6 +452,40 @@ document.addEventListener("DOMContentLoaded", async function () {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "error-message";
         elements.form.appendChild(elements.responseMessage);
+    }
+
+    // Handle Submission Error
+    function handleSubmissionError(error) {
+        console.error("Submission error:", error);
+        
+        // Reset button loading state
+        if (elements.submitButton) {
+            elements.submitButton.classList.remove('button-loading');
+            state.isButtonLoading = false;
+        }
+
+        switch(error.message) {
+            case "BLACKLISTED":
+                showErrorMessage("❌ Esate užblokuotas!");
+                // Redirect to main page after 5 seconds
+                setTimeout(() => {
+                    window.location.href = "https://anketa.mielamalonu.com";
+                }, 5000);
+                break;
+            case "LA":
+                showErrorMessage("❌ Jūs jau esate užpildęs anketą!");
+                // Redirect to main page
+                setTimeout(() => {
+                    window.location.href = "https://anketa.mielamalonu.com";
+                }, 5000);
+                break;
+            default:
+                showErrorMessage("❌ Įvyko klaida pateikiant anketą. Bandykite dar kartą.");
+                // Redirect to main page
+                setTimeout(() => {
+                    window.location.href = "https://anketa.mielamalonu.com";
+                }, 5000);
+        }
     }
 
     // Fetch Discord Invite
@@ -632,11 +530,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             setupInputProtection();
             await initializeDatabase();
             await fetchStatus();
+            checkAuthState();
             restoreFormData();
             setupFormSubmission();
-            
-            // Only check auth state AFTER everything else is set up
-            checkAuthState();
             
             // Fetch Discord invite for the specified container
             await fetchDiscordInvite("mielamalonu", "rules-container");
@@ -649,3 +545,39 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Start initialization
     initializePage();
 });
+
+// Fetch Discord Invite function added outside the main event listener
+async function fetchDiscordInvite(inviteCode, containerClass) {
+    try {
+        const response = await fetch(`https://discord.com/api/v9/invites/${inviteCode}?with_counts=true`);
+        const data = await response.json();
+        if (data.guild) {
+            const container = document.querySelector(`.${containerClass}`);
+            if (!container) return console.error("Container not found!");
+            
+            // Remove any existing invite before adding a new one
+            const oldInvite = container.querySelector(".discord-invite");
+            if (oldInvite) oldInvite.remove();
+            
+            // Create the Discord invite HTML structure dynamically
+            const inviteHTML = `
+                <div class="discord-invite">
+                    <div class="invite-banner">
+                        ${data.guild.banner ? `<img src="https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png?size=600" alt="Server Banner">` : ""}
+                    </div>
+                    <div class="invite-content">
+                        <img src="https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png" alt="Server Icon" class="server-icon">
+                        <div class="server-info">
+                            <h3>${data.guild.name}</h3>
+                            <p>${data.approximate_presence_count} Online • ${data.approximate_member_count} Members</p>
+                        </div>
+                        <a href="https://discord.gg/${inviteCode}" target="_blank" class="join-button">Join</a>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML("beforeend", inviteHTML);
+        }
+    } catch (error) {
+        console.error("Error fetching Discord invite:", error);
+    }
+}
