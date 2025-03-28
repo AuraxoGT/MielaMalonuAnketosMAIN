@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             if (!blData || blData.length === 0) {
                 const { error: blInsertError } = await supabaseClient
                     .from(CONFIG.SUPABASE.BLACKLIST_TABLE)
-                    .insert({ id: 1, blacklisted_ids: '' });
+                    .insert({ id: 1, blacklist: '' });
                 
                 if (blInsertError) throw new Error("Failed to initialize blacklist");
             }
