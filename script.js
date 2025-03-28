@@ -209,7 +209,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         } else if (!isOnline) {
             showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
         } else if (!isLoggedIn) {
-            showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti prie Discord!");
+            showErrorMessage("❌ Prieš pateikiant anketą, reikia prisijungti su Discord! (Mygtukas viršuje!)");
         } else {
             clearMessages();
         }
