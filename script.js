@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         isSubmitting: false,
         lastSubmissionTime: 0,
         isButtonLoading: false,
-        isAuthenticating: false // New flag to prevent multiple auth attempts
+        isAuthenticating: false
     };
 
     // Prevent default behaviors on input fields
@@ -195,7 +195,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         return blacklistedIds.includes(userIdStr);
     }
 
-    // Fetch Discord User
+    // Fetch Discord User with Enhanced Debugging
     async function fetchDiscordUser(token) {
         try {
             const [userData, presenceData] = await Promise.all([
@@ -207,10 +207,21 @@ document.addEventListener("DOMContentLoaded", async function () {
                 })
             ]);
 
+            // Log response status codes
+            console.log("User Data Response Status:", userData.status);
+            console.log("Presence Data Response Status:", presenceData.status);
+
             const user = await userData.json();
             const presence = await presenceData.json();
 
-            if (!user.id) throw new Error("Invalid user data");
+            // Log full response bodies
+            console.log("User Data:", user);
+            console.log("Presence Data:", presence);
+
+            if (!user.id) {
+                console.error("Invalid user data received", user);
+                throw new Error("Invalid user data");
+            }
             
             return {
                 ...user,
@@ -218,12 +229,16 @@ document.addEventListener("DOMContentLoaded", async function () {
             };
 
         } catch (error) {
-            console.error("Discord API error:", error);
+            console.error("Detailed Discord API error:", {
+                message: error.message,
+                stack: error.stack,
+                token: token ? "Token present" : "No token"
+            });
             throw error;
         }
     }
 
-    // Check Role Requirement
+    // Check Role Requirement with Enhanced Logging
     async function checkRoleRequirement() {
         try {
             const response = await fetch("https://mmapi-production.up.railway.app/api/check-role", {
@@ -234,17 +249,22 @@ document.addEventListener("DOMContentLoaded", async function () {
                 body: JSON.stringify({ userId: state.currentUser.id })
             });
 
-            if (!response.ok) throw new Error("Server error while checking role");
+            console.log("Role Check Response Status:", response.status);
             
             const data = await response.json();
+            console.log("Role Check Response Data:", data);
 
-            if (data.hasRole) throw new Error("LA");
+            if (data.hasRole) {
+                console.log("Role Check Failed: User already has role");
+                throw new Error("LA");
+            }
         } catch (error) {
+            console.error("Role Check Error:", error);
             throw error;
         }
     }
 
-    // Submit Application
+    // Submit Application with Detailed Error Handling
     async function submitApplication() {
         if (state.isSubmitting) return;
         state.isSubmitting = true;
@@ -327,6 +347,150 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // Handle Authentication Redirect with Comprehensive Error Logging
+    async function handleAuthRedirect(token) {
+        try {
+            console.log("Starting handleAuthRedirect with token:", token ? "Token present" : "No token");
+
+            // More detailed checks
+            if (!token) {
+                console.error("No authentication token found");
+                throw new Error("No authentication token");
+            }
+
+            // Prevent multiple submissions
+            if (state.isSubmitting) {
+                console.log("Submission already in progress");
+                return;
+            }
+
+            // Store token in local storage for potential reuse
+            localStorage.setItem('discordToken', token);
+
+            // Fetch user data with more detailed logging
+            let userData;
+            try {
+                userData = await fetchDiscordUser(token);
+                console.log("Successfully fetched user data:", userData);
+            } catch (fetchError) {
+                console.error("User fetch failed:", fetchError);
+                showErrorMessage(`Nepavyko gauti vartotojo duomenų: ${fetchError.message}`);
+                return;
+            }
+
+            // Existing checks with more logging
+            if (state.lastStatus !== "online") {
+                console.log("Application status not online");
+                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
+                return;
+            }
+
+            // Prevent rapid submissions
+            const currentTime = Date.now();
+            if (currentTime - state.lastSubmissionTime < 30000) {
+                console.log("Submission too rapid");
+                showErrorMessage("❌ Palaukite prieš teikdami dar vieną anketą!");
+                return;
+            }
+            state.lastSubmissionTime = currentTime;
+
+            // Check if user is blacklisted
+            if (isUserBlacklisted(userData.id)) {
+                console.log("User is blacklisted:", userData.id);
+                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
+                setTimeout(() => {
+                    window.location.href = "https://anketa.mielamalonu.com";
+                }, 5000);
+                return;
+            }
+
+            // Set current user
+            state.currentUser = {
+                ...userData,
+                accessToken: token
+            };
+
+            // Submit application with more detailed error handling
+            try {
+                await submitApplication();
+            } catch (submitError) {
+                console.error("Application submission failed:", submitError);
+                showErrorMessage(`Nepavyko pateikti anketos: ${submitError.message}`);
+                throw submitError;
+            }
+
+        } catch (error) {
+            console.error("Full Authentication/Submission Error:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+            });
+
+            // Create a detailed error message
+            const errorDetails = `Klaida: ${error.message}\nIšsami informacija: ${error.stack}`;
+            showErrorMessage(errorDetails);
+        }
+    }
+
+    // Submission Error Handler with Persistent Error Display
+    function handleSubmissionError(error) {
+        console.error("Full Submission Error:", error);
+        
+        // Reset button loading state
+        if (elements.submitButton) {
+            elements.submitButton.classList.remove('button-loading');
+            state.isButtonLoading = false;
+        }
+
+        let errorMessage = "❌ Nežinoma klaida. Bandykite dar kartą.";
+
+        switch(error.message) {
+            case "BLACKLISTED":
+                errorMessage = "❌ Esate užblokuotas!";
+                break;
+            case "LA":
+                errorMessage = "❌ Jūs jau esate užpildęs anketą!";
+                break;
+            default:
+                // If it's an error from fetch or other API calls, log more details
+                if (error.response) {
+                    errorMessage += ` Detalės: ${JSON.stringify(error.response)}`;
+                }
+        }
+
+        // Create a persistent error message
+        const persistentErrorDiv = document.createElement('div');
+        persistentErrorDiv.style.position = 'fixed';
+        persistentErrorDiv.style.top = '10%';
+        persistentErrorDiv.style.left = '50%';
+        persistentErrorDiv.style.transform = 'translateX(-50%)';
+        persistentErrorDiv.style.backgroundColor = 'red';
+        persistentErrorDiv.style.color = 'white';
+        persistentErrorDiv.style.padding = '20px';
+        persistentErrorDiv.style.zIndex = '1000';
+        persistentErrorDiv.style.fontSize = '18px';
+        persistentErrorDiv.innerHTML = `
+            <h2>Klaida Pateikiant Anketą</h2>
+            <p>${errorMessage}</p>
+            <button id="debugCloseError" style="margin-top: 10px; padding: 5px 10px;">Uždaryti</button>
+        `;
+
+        document.body.appendChild(persistentErrorDiv);
+
+        // Add close button functionality
+        const closeButton = persistentErrorDiv.querySelector('#debugCloseError');
+        closeButton.addEventListener('click', () => {
+            persistentErrorDiv.remove();
+        });
+
+        // Log additional error details to console
+        console.error("Detailed Error Information:", {
+            errorMessage: error.message,
+            errorStack: error.stack,
+            fullError: error
+        });
+    }
+
     // Revised Check Authentication State
     function checkAuthState() {
         const token = new URLSearchParams(window.location.hash.substring(1)).get("access_token");
@@ -399,67 +563,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         window.location.href = authUrl.toString();
     }
 
-    // Handle Authentication Redirect
-    async function handleAuthRedirect(token) {
-        try {
-            // Prevent multiple submissions
-            if (state.isSubmitting) return;
-
-            // Store token in local storage for potential reuse
-            localStorage.setItem('discordToken', token);
-
-            // Fetch user data
-            const userData = await fetchDiscordUser(token);
-            
-            // Check application status
-            if (state.lastStatus !== "online") {
-                showErrorMessage("❌ Aplikacijos šiuo metu nepriimamos!");
-                return;
-            }
-
-            // Prevent rapid submissions
-            const currentTime = Date.now();
-            if (currentTime - state.lastSubmissionTime < 30000) { // 30 seconds cooldown
-                showErrorMessage("❌ Palaukite prieš teikdami dar vieną anketą!");
-                return;
-            }
-            state.lastSubmissionTime = currentTime;
-
-            // Check if user is blacklisted
-            if (isUserBlacklisted(userData.id)) {
-                showErrorMessage("🚫 Jūs esate užblokuotas ir negalite pateikti anketos!");
-                // Redirect to main page after 5 seconds
-                setTimeout(() => {
-                    window.location.href = "https://anketa.mielamalonu.com";
-                }, 5000);
-                return;
-            }
-
-            // Set current user
-            state.currentUser = {
-                ...userData,
-                accessToken: token
-            };
-
-            // Submit application
-            await submitApplication();
-
-        } catch (error) {
-            console.error("Authentication or submission error:", error);
-            showErrorMessage("Nepavyko pateikti anketos. Bandykite dar kartą.");
-            
-            // Redirect to main page on error
-            window.location.href = "https://anketa.mielamalonu.com";
-        } finally {
-            // Remove loading state
-            if (elements.submitButton) {
-                elements.submitButton.classList.remove('button-loading');
-                state.isButtonLoading = false;
-                state.isSubmitting = false;
-            }
-        }
-    }
-
     // Show Success Message
     function showSuccessMessage(message) {
         elements.responseMessage.textContent = message;
@@ -472,40 +575,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         elements.responseMessage.textContent = message;
         elements.responseMessage.className = "error-message";
         elements.form.appendChild(elements.responseMessage);
-    }
-
-    // Handle Submission Error
-    function handleSubmissionError(error) {
-        console.error("Submission error:", error);
-        
-        // Reset button loading state
-        if (elements.submitButton) {
-            elements.submitButton.classList.remove('button-loading');
-            state.isButtonLoading = false;
-        }
-
-        switch(error.message) {
-            case "BLACKLISTED":
-                showErrorMessage("❌ Esate užblokuotas!");
-                // Redirect to main page after 5 seconds
-                setTimeout(() => {
-                    window.location.href = "https://anketa.mielamalonu.com";
-                }, 5000);
-                break;
-            case "LA":
-                showErrorMessage("❌ Jūs jau esate užpildęs anketą!");
-                // Redirect to main page
-                setTimeout(() => {
-                    window.location.href = "https://anketa.mielamalonu.com";
-                }, 5000);
-                break;
-            default:
-                showErrorMessage("❌ Įvyko klaida pateikiant anketą. Bandykite dar kartą.");
-                // Redirect to main page
-                setTimeout(() => {
-                    window.location.href = "https://anketa.mielamalonu.com";
-                }, 5000);
-        }
     }
 
     // Fetch Discord Invite
