@@ -277,7 +277,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         
         // Check user role
         try {
-            const response = await fetch("https://mmapi-production.up.railway.app/api/check-role/laukiantis-atsakymo", {
+            const response = await fetch("https://mmapi-production.up.railway.app/api/check-role", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
